@@ -63,3 +63,23 @@
 > — see [CP-MILESTONE] | 2026-06-20: Root README Reframed as Modular Skill Garden.
 
 ---
+
+### [PI-POSITIONING] | 2026-09-26: Rebrand From Skill Garden to One Named Skill
+
+**Observation:**
+- The owner asked to rebrand the repository into one centralized skill named Calamus, the reed pen that preceded the quill, replacing the multi-module garden framing.
+
+**Why It Matters:**
+- A single named skill is easier to explain, install, and cite than a collection with one populated module. The never-started second module was implying scope the project does not have.
+
+**Evidence:**
+- **Source:** Owner request in session.
+- **Strength:** Medium
+
+**Hypothesis / Next Step:**
+- If the README leads with one name, one install path per host, and the host matrix, readers evaluating the skill will grasp its value faster than through a module table. Validate by rewriting the README during implementation and reading its first screen.
+
+> **[CROSS-LOG]** Engineering design logged in `./docs/dev_journal.md`
+> — see [CP-ARCHITECTURE] | 2026-09-26: Calamus Design — Common Core With Host Shims.
+
+---

@@ -82,3 +82,22 @@
 > — see [PI-POSITIONING] | 2026-06-20: Garden README Needs Modular Skill Blocks.
 
 ---
+
+<!-- SESSION: 2026-09-26 16:30 | calamus design -->
+
+### [CP-ARCHITECTURE] | 2026-09-26: Calamus Design — Common Core With Host Shims
+
+**Summary:** Designed the consolidation of the journaling module into one skill, `calamus`: a router `SKILL.md` plus per-journal references, one host-neutral hook engine with a separate model-backend axis, and thin per-host registration shims for Claude Code, Codex CLI, and Cursor. The spec is written; nothing is implemented yet.
+
+**Files/Modules Affected:** `docs/superpowers/specs/2026-09-26-calamus-design.md` (new). Implementation will touch all of `journaling/`, `README.md`, `CLAUDE.md`, `AGENTS.md`.
+
+**Key Trade-off:** Chose a common core plus host shims over one universal script (host differences would become branches in a single script) and over per-host copies (format, prompts, and model pins would triplicate and drift, as the current scripts already show). The firing host's CLI is only the default backend; the backend is its own axis with a generic stdin-to-stdout escape hatch. A pinned model never silently falls back to another.
+
+**Evidence:** Read the current Claude Code, Codex, Cursor, and Agent Skills docs; `claude --help` confirmed `--safe-mode` and `--bare` locally. Doc-derived findings that the existing hooks are stale: Codex has no `TaskCompleted` event and uses a different `hooks.json` shape, and Claude `SessionEnd` has a 1.5 s default budget while `session-end.sh` makes two model calls with no `timeout` registered (not reproduced live). Codex and Cursor CLIs are not installed locally, so their behavior is documentation-only.
+
+**Follow-ups:** Owner review of the spec, then an implementation plan. Live-test the Claude `SessionEnd` timeout behavior and confirm Cursor headless CLI flags during implementation.
+
+> **[CROSS-LOG]** Positioning change logged in `./docs/product_insights.md`
+> — see [PI-POSITIONING] | 2026-09-26: Rebrand From Skill Garden to One Named Skill.
+
+---
