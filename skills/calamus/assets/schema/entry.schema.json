@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "journals": {
+    "engineering": {
+      "stem": "dev_journal",
+      "md_header": "# Engineering Development Journal\n> Chronological log of architecture decisions, implementation pivots,\n> constraint discoveries, verification results, and engineering milestones.\n\n---\n",
+      "crosslog_note": "Product impact",
+      "tags": ["CP-ARCHITECTURE", "CP-PIVOT", "CP-REFACTOR", "CP-MILESTONE", "CP-CONSTRAINT", "CP-DEBUG", "CP-TESTING", "CP-INTEGRATION"],
+      "variants": ["lightweight", "full", "snapshot"]
+    },
+    "product": {
+      "stem": "product_insights",
+      "md_header": "# Product Insight Journal\n> Chronological log of user pain points, UX friction, product hypotheses,\n> positioning insights, roadmap trade-offs, experiments, and product decisions.\n\n---\n",
+      "crosslog_note": "Engineering root cause",
+      "tags": ["PI-USER-PAIN", "PI-UX-FRICTION", "PI-AHA-MOMENT", "PI-FEATURE-IDEA", "PI-POSITIONING", "PI-ONBOARDING", "PI-RETENTION", "PI-METRIC", "PI-EXPERIMENT", "PI-COMPETITIVE", "PI-ROADMAP", "PI-PRICING", "PI-TRUST", "PI-ACCESSIBILITY", "PI-GROWTH", "PI-SUPPORT"],
+      "variants": ["lightweight", "full"]
+    }
+  },
+  "variants": {
+    "engineering.lightweight": {
+      "fields": [
+        {"key": "summary", "label": "Summary", "shape": "text", "required": true, "hint": "1-2 sentences: decision made and why."},
+        {"key": "files", "label": "Files/Modules Affected", "shape": "list", "layout": "inline", "code": true, "empty": "None identified.", "item": "file", "hint": "Files, modules, or components affected."},
+        {"key": "tradeoff", "label": "Key Trade-off", "shape": "text", "required": true, "hint": "What was accepted or rejected and why."},
+        {"key": "evidence", "label": "Evidence", "shape": "evidence", "required": true, "hint": "How we know this worked; status unverified if not yet verified."},
+        {"key": "followups", "label": "Follow-ups", "shape": "list", "layout": "inline", "sep": "; ", "empty": "None identified.", "hint": "Open questions."}
+      ]
+    },
+    "engineering.full": {
+      "fields": [
+        {"key": "context", "label": "The Context & Problem", "shape": "list", "layout": "bullets", "required": true, "hint": "Concrete technical goal, problem, or question."},
+        {"key": "design", "label": "Design Decisions & Trade-offs", "shape": "group", "sub": [
+          {"key": "choice", "label": "Choice", "shape": "text", "required": true, "hint": "The design, library, pattern, or workflow selected."},
+          {"key": "alternatives", "label": "Alternatives Considered", "shape": "text", "required": true, "hint": "Serious alternatives, or state none were evaluated."},
+          {"key": "why", "label": "Why", "shape": "text", "required": true, "hint": "Technical justification and constraints weighed."}
+        ]},
+        {"key": "pivot", "label": "The Pivot/Revision", "shape": "list", "layout": "bullets", "required": true, "hint": "What changed during implementation; if the plan held, why."},
+        {"key": "impl", "label": "Implementation Notes", "shape": "group", "sub": [
+          {"key": "files", "label": "Files/Modules Affected", "shape": "list", "layout": "inline", "code": true, "empty": "None identified.", "item": "file", "hint": "Files, modules, functions, components."},
+          {"key": "pattern", "label": "Core Pattern Introduced", "shape": "text", "hint": "The implementation pattern or mechanism."}
+        ]},
+        {"key": "verification", "label": "Verification & Evidence", "shape": "list", "layout": "bullets", "empty": "Not yet verified.", "hint": "Tests, builds, logs, manual checks."},
+        {"key": "references", "label": "Documentation & References Utilized", "shape": "list", "layout": "bullets", "hint": "Only references actually consulted: [Name](URL) - takeaway."},
+        {"key": "code", "label": "Code Snapshot/Diff Concept", "shape": "code", "hint": "Pseudocode, diff concept, schema, or snippet."},
+        {"key": "crosslog_notes", "label": "Cross-Log", "shape": "list", "layout": "bullets", "empty": "None.", "hint": "Related product entry, if any."},
+        {"key": "followups", "label": "Open Questions / Follow-ups", "shape": "list", "layout": "bullets", "empty": "None identified.", "hint": "Unresolved risks, deferred work, edge cases."}
+      ]
+    },
+    "engineering.snapshot": {
+      "tags": ["CP-COMPACT-SNAPSHOT"],
+      "title_prefix": "Pre-compaction state — ",
+      "fields": [
+        {"key": "summary", "label": "Summary", "shape": "text", "required": true, "hint": "What is in progress, 1-2 sentences."},
+        {"key": "files", "label": "Files in progress", "shape": "list", "layout": "inline", "code": true, "empty": "None identified.", "item": "file", "hint": "Files actively being worked on."},
+        {"key": "decisions", "label": "Decisions made this context window", "shape": "list", "layout": "bullets", "max": 3, "empty": "None identified.", "hint": "Key choices, at most 3."},
+        {"key": "next_step", "label": "Immediate next step", "shape": "text", "required": true, "hint": "Exactly what to do right after compaction."},
+        {"key": "open_questions", "label": "Open questions", "shape": "list", "layout": "bullets", "empty": "None identified.", "hint": "Unresolved risks or blockers."}
+      ]
+    },
+    "product.lightweight": {
+      "fields": [
+        {"key": "observation", "label": "Observation", "shape": "list", "layout": "bullets", "required": true, "hint": "What was noticed."},
+        {"key": "why", "label": "Why It Matters", "shape": "list", "layout": "bullets", "required": true, "hint": "Impact on UX, strategy, or roadmap."},
+        {"key": "evidence", "label": "Evidence", "shape": "group", "sub": [
+          {"key": "source", "label": "Source", "shape": "text", "required": true, "hint": "Where this came from."},
+          {"key": "strength", "label": "Strength", "shape": "enum", "required": true, "enum": ["Strong", "Medium", "Weak"]}
+        ]},
+        {"key": "next_step", "label": "Hypothesis / Next Step", "shape": "list", "layout": "bullets", "required": true, "hint": "What to test, build, measure, revisit, or ignore."}
+      ]
+    },
+    "product.full": {
+      "fields": [
+        {"key": "observation", "label": "Observation", "shape": "list", "layout": "bullets", "required": true, "hint": "What was noticed, concretely."},
+        {"key": "context", "label": "User / Journey Context", "shape": "group", "sub": [
+          {"key": "segment", "label": "User Segment", "shape": "text", "empty": "Unknown", "hint": "Who this affects."},
+          {"key": "stage", "label": "Journey Stage", "shape": "enum", "required": true, "enum": ["Discovery", "Onboarding", "Activation", "Core workflow", "Retention", "Support", "Upgrade", "Sharing"]},
+          {"key": "goal", "label": "User Goal", "shape": "text", "required": true, "hint": "What the user was trying to accomplish."}
+        ]},
+        {"key": "jtbd", "label": "Jobs-to-Be-Done Lens", "shape": "group", "sub": [
+          {"key": "functional", "label": "Functional Job", "shape": "text", "required": true, "hint": "The practical progress the user wants."},
+          {"key": "emotional", "label": "Emotional/Social Job", "shape": "text", "hint": "Omit if purely about UI execution."}
+        ]},
+        {"key": "evidence", "label": "Evidence", "shape": "group", "sub": [
+          {"key": "source", "label": "Source", "shape": "text", "required": true, "hint": "Quote, analytics, walkthrough, support issue, competitor, founder observation, or implementation discovery."},
+          {"key": "strength", "label": "Strength", "shape": "enum", "required": true, "enum": ["Strong", "Medium", "Weak"]},
+          {"key": "notes", "label": "Notes", "shape": "text", "required": true, "hint": "Concrete evidence. Do not invent."},
+          {"key": "counter", "label": "Counter-Evidence", "shape": "text", "empty": "None identified.", "hint": "Known counter-signal."}
+        ]},
+        {"key": "impact", "label": "Product Impact", "shape": "list", "layout": "bullets", "required": true, "hint": "Effect on activation, retention, trust, and so on."},
+        {"key": "risk", "label": "Product Risk Lens", "shape": "group", "sub": [
+          {"key": "primary", "label": "Primary Risk", "shape": "enum", "required": true, "enum": ["Value", "Usability", "Feasibility", "Viability", "Trust", "Accessibility"]},
+          {"key": "why", "label": "Why", "shape": "text", "required": true, "hint": "What this de-risks or exposes."}
+        ]},
+        {"key": "hypothesis", "label": "Hypothesis", "shape": "list", "layout": "bullets", "required": true, "hint": "If we change X, then Y should improve because Z."},
+        {"key": "next_step", "label": "Decision / Next Step", "shape": "list", "layout": "bullets", "required": true, "hint": "What to design, test, build, measure, ignore, or revisit."},
+        {"key": "priority", "label": "Priority Signal", "shape": "group", "sub": [
+          {"key": "reach", "label": "Reach", "shape": "enum", "required": true, "enum": ["Low", "Medium", "High", "Unknown"]},
+          {"key": "impact", "label": "Impact", "shape": "enum", "required": true, "enum": ["Low", "Medium", "High", "Unknown"]},
+          {"key": "confidence", "label": "Confidence", "shape": "enum", "required": true, "enum": ["Low", "Medium", "High"]},
+          {"key": "effort", "label": "Effort", "shape": "enum", "required": true, "enum": ["Low", "Medium", "High", "Unknown"]}
+        ]},
+        {"key": "content_angle", "label": "Potential Content Angle", "shape": "list", "layout": "bullets", "hint": "Case study, write-up, or interview angle."},
+        {"key": "crosslog_notes", "label": "Cross-Log", "shape": "list", "layout": "bullets", "empty": "None.", "hint": "Related engineering entry, if any."},
+        {"key": "open_questions", "label": "Open Questions", "shape": "list", "layout": "bullets", "empty": "None identified.", "hint": "Unresolved risks, assumptions, follow-ups."}
+      ]
+    }
+  },
+  "markers": {
+    "session": {"fields": ["when", "session", "event", "note"], "required": ["when"]},
+    "compact": {"fields": ["when", "session"], "required": ["when", "session"]},
+    "resume": {"fields": ["when", "session", "snapshot"], "required": ["when", "session"]},
+    "pending": {"fields": ["date", "session", "host", "event"], "required": ["date", "session", "host", "event"]},
+    "resolved": {"fields": ["date", "session", "entry"], "required": ["date", "session"]},
+    "eval-fail": {"fields": ["backend", "model", "reason"], "required": ["reason"]}
+  }
+}
