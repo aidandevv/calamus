@@ -139,7 +139,7 @@ Report:
 
 ### Step 4: Regression gate
 
-When the `engineering-journal/SKILL.md` is updated, re-run Level 4 evals.
+When `references/engineering-journal.md` is updated, re-run Level 4 evals.
 If any metric drops more than 10 percentage points from the baseline, flag
 the regression before committing the skill update.
 
@@ -151,11 +151,10 @@ This is critical. As noted in the eval literature, a model provider quietly
 updating the underlying LLM can change scoring without any alert. The judge
 model must be pinned to a specific version in the eval config:
 
-```bash
-# evals/eval-config.sh
-JUDGE_MODEL="claude-haiku-4-5-20251001"  # pinned version
-SKILL_MODEL="claude-haiku-4-5-20251001"  # pinned version
-```
+Pins live in `assets/calamus.env` with every other model string; Level 4
+reads the judge and skill models from there (`CALAMUS_EVAL_BACKEND` and the
+matching `CALAMUS_<BACKEND>_MODEL`) rather than defining its own. Use a
+dated snapshot identifier, not an alias, for the Level 4 baseline.
 
 When upgrading the judge model, re-score the entire golden set and update
 the baseline before treating new scores as comparable to old ones.
