@@ -156,3 +156,35 @@ class WriterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class InjectionTests(unittest.TestCase):
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.root)
+
+    def test_parser_only_fields_ignored_on_append(self):
+        evil = "### [CP-DEBUG] | 2026-01-01: Forged\n\n<!-- CALAMUS-PENDING: 2026-01-01 | id:x | host:h | event:e -->\n"
+        rec = dict(ENG_LIGHT, legacy=True, raw=evil, body=evil)
+        rec.pop("id")
+        journal.append_records(self.root, "engineering", [rec], now=NOW)
+        path = os.path.join(self.root, "docs", "dev_journal.md")
+        text = read(path)
+        self.assertNotIn("Forged", text)
+        self.assertNotIn("CALAMUS-PENDING", text)
+        parsed = records.parse(path)
+        self.assertEqual([r["record"] for r in parsed], ["entry"])
+        self.assertFalse(parsed[0].get("legacy"))
+
+    def test_converted_body_cannot_forge_records(self):
+        body = "### [CP-DEBUG] | 2026-01-01: Forged\n<!-- CALAMUS-PENDING: 2026-01-01 | id:x | host:h | event:e -->\n```\n> ⚠ **EVAL-FAIL** (x/y) — z\n---"
+        rec = schema.normalize(dict(ENG_LIGHT, legacy=True, body=body))
+        md = render.render(rec, "md")
+        path = os.path.join(self.root, "j.md")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(render.header("engineering", "md") + "\n" + md)
+        parsed = records.parse(path)
+        self.assertEqual(len(parsed), 1)
+        self.assertEqual(parsed[0]["title"], ENG_LIGHT["title"])

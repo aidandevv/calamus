@@ -7,6 +7,7 @@ import records
 import render
 import schema
 
+PARSER_ONLY = ("legacy", "raw", "body")
 FORMAT_ALIASES = {"md": "md", "human": "md", "xml": "xml", "model": "xml", "jsonl": "jsonl"}
 
 
@@ -59,7 +60,9 @@ def prepare(journal, recs, now=None):
         if not isinstance(rec, dict):
             errors.append("entry %d: must be an object" % (i + 1))
             continue
-        rec = dict(rec)
+        # legacy/raw/body are produced only by the parser; accepting them from
+        # input would let a caller write unvalidated text into the journal.
+        rec = {k: v for k, v in rec.items() if k not in PARSER_ONLY}
         rec.setdefault("record", "entry")
         if rec["record"] == "entry":
             rec.setdefault("journal", journal)

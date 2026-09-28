@@ -45,6 +45,19 @@ def fence_for(code):
     return "`" * max(3, max(runs, default=0) + 1)
 
 
+UNSAFE_LINE_RE = re.compile(r"^(#|<!--|>|`{3,}|-{3,}\s*$|\*\*[^*]+:\*\*)")
+
+
+def neutralize_md(text):
+    """Escape lines of free text that the md parser would read as structure."""
+    out = []
+    for line in text.split("\n"):
+        if UNSAFE_LINE_RE.match(line.lstrip()):
+            line = "\\" + line.lstrip()
+        out.append(line)
+    return "\n".join(out)
+
+
 def _md_inline_list(field, items):
     if field.get("code"):
         items = ["`%s`" % i for i in items]
@@ -99,7 +112,7 @@ def _md_entry(rec, ext):
     if rec.get("legacy"):
         if rec.get("raw"):
             return rec["raw"].rstrip("\n") + "\n"
-        blocks.append(rec.get("body", ""))
+        blocks.append(neutralize_md(rec.get("body", "")))
     for field in (spec or {}).get("fields", []):
         lines = _md_field(field, rec.get(field["key"], schema.empty_value(field)))
         if lines:
