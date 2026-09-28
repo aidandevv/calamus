@@ -1,6 +1,7 @@
 # Calamus — Design Spec
 
-> Status: draft for review. Date: 2026-09-26. Branch: `refactor/calamus`.
+> Status: draft for review. Date: 2026-09-26; amended 2026-09-27 (incremental
+> capture window, transcript extractor, generic host). Branch: `refactor/calamus`.
 > Scope: rebrand this repository from a multi-skill garden into one
 > centralized skill named **Calamus**, and rework the hook layer so it is
 > host-neutral and model-agnostic across Claude Code, Codex CLI, and Cursor.
@@ -19,17 +20,21 @@
    model outside one config file.
 5. Existing behavior is preserved where it was correct: append-only
    journals, hooks that never block the host, pinned judge models.
+6. Capture is token-bounded: each hook call sends only new, distilled
+   session text to the backend, never a repeated or tool-output-heavy tail.
+7. Any runtime that can shell out and supply a transcript file can call the
+   engine through a `generic` host, without a native shim.
 
 **Non-goals**
 
-- Native hook shims for hosts other than the three above. The `generic`
-  backend covers other *models*; other *hosts* are out of scope.
+- Native hook registration for hosts other than the three above. The
+  `generic` backend covers other *models*; the `generic` host covers any
+  caller that can shell out (section 4.5).
 - Implementing Level 3 (drift) or Level 4 (behavioral) evals.
 - Packaging as a Claude Code or Codex plugin. The layout is compatible with
   a later plugin wrapper; no manifest is added now.
-- Per-host transcript readers. The engine feeds a raw transcript tail to the
-  backend, as today. Revisit if capture quality proves poor.
-- Injecting pending captures at session start (see 4.6).
+- Injecting pending captures at session start. Pending markers are resolved
+  through the skill instead (section 3.1, item 7).
 - Renaming the GitHub repository or the local directory. That is an
   outward-facing action left to the owner.
 - Editing any user-global configuration (`~/.claude`, `~/.codex`,
@@ -52,6 +57,23 @@ environment, so their behavior is documentation-only until tested.
 | F6 | `claude --safe-mode` disables hooks, skills, plugins, MCP and CLAUDE.md for the run (*local*). `--bare` also skips hooks. Codex documents no guard against `codex exec` re-triggering hooks. | `claude --help` (*local*); Codex hooks docs | Recursion is guarded by an inherited env var, independent of host flags. |
 | F7 | Cursor hooks are GA: `sessionStart`, `sessionEnd`, `preCompact`, `stop`, and others; config is `hooks.json` with `"version": 1`; exit 2 blocks, other non-zero fails open. Cursor imports Claude Code hooks from `.claude/settings.json` (SessionEnd, PreCompact, Stop mapped; no PostCompact equivalent). Payload uses `conversation_id` and `workspace_roots`. | Cursor hooks docs; Cursor third-party hooks docs | New Cursor host shim; payload normalizer; dedupe to cover double registration. |
 | F8 | Model names are hardcoded in four scripts (`claude-haiku-4-5`, `gpt-5.4-mini`), and three scripts duplicate payload parsing, journal creation, and the Level 1 gate. | Repository | One engine plus a backend axis; pins move to one config file. |
+
+### 2.1 Token accounting
+
+Estimates are characters divided by 4, not tokenizer counts.
+
+| Cost | Current | Calamus |
+|---|---|---|
+| Always loaded: skill descriptions | ~190 tokens (two skills) | ~150 tokens |
+| Always loaded: adapter | ~430 tokens | at most 15 lines, ~200 tokens |
+| On activation, one journal | ~2.3–2.6K tokens | ~3.3–3.5K (router plus one reference; not yet drafted) |
+| On activation, both journals | ~4.8K tokens | about the same |
+| Hook engine, in the working agent's context | 0 tokens | 0 tokens |
+| Hook engine, separate backend call | up to ~7K input per sweep, and the same tail is resent on every qualifying `turn-stop` | bounded by the caps in 4.4; only text added since the last sweep, tool output removed (4.2, 4.7) |
+
+Consolidation is token-neutral, and slightly worse for a single-journal
+task. Its value is one name, one install, and one config. The token savings
+come from the hook changes in 4.2 and 4.7.
 
 ## 3. Layout
 
@@ -76,7 +98,7 @@ skills/calamus/
     product-insights.md        triggers, tags, evidence rules, schemas
   scripts/
     hook.sh                    single hook entry
-    lib/                       payload.sh  gate.sh  journal.sh  config.sh  timeout.py
+    lib/                       payload.sh  gate.sh  journal.sh  config.sh  timeout.py  extract.py
     backends/                  claude.sh  codex.sh  cursor.sh  generic.sh
     prompts/                   snapshot.txt  sweep.txt  eval-gate.txt
     calamus-init               creates both journal files
@@ -176,39 +198,50 @@ Registration templates pass both flags; nothing is auto-detected.
 2. **Normalize payload** (one `python3` call; missing or invalid JSON yields
    empty fields, never an error):
 
-   | Field | claude-code | codex | cursor |
-   |---|---|---|---|
-   | session id | `session_id` | `session_id` | `conversation_id`, else `session_id` |
-   | cwd | `cwd` | `cwd` | first of `workspace_roots`, else `CURSOR_PROJECT_DIR` |
-   | transcript | `transcript_path` | `transcript_path` (may be null) | `transcript_path`, else `CURSOR_TRANSCRIPT_PATH` |
+   | Field | claude-code | codex | cursor | generic |
+   |---|---|---|---|---|
+   | session id | `session_id` | `session_id` | `conversation_id`, else `session_id` | `session_id`, else `CALAMUS_SESSION_ID` |
+   | cwd | `cwd` | `cwd` | first of `workspace_roots`, else `CURSOR_PROJECT_DIR` | `cwd`, else `CALAMUS_CWD` |
+   | transcript | `transcript_path` | `transcript_path` (may be null) | `transcript_path`, else `CURSOR_TRANSCRIPT_PATH` | `transcript_path`, else `CALAMUS_TRANSCRIPT` |
 
 3. **Resolve root and state.** Root is the git top level of `cwd`, else
    `cwd`. State lives in `<root>/.calamus/` (`logs/hook.log`, `state/`),
    replacing `.claude/logs`, `.codex/logs`, and `/tmp` files. `.calamus/` is
    never committed; `calamus-init` prints a reminder to ignore it.
 4. **Gate.** Skip with a log line when: no transcript file; transcript below
-   `CALAMUS_MIN_BYTES_*`; for `turn-stop` and `session-end`, growth since the
-   last sweep (per-session size cache) below `CALAMUS_MIN_GROWTH`; or the
-   same `(host, session, event)` already ran within `CALAMUS_DEDUPE_SECS`.
-   `pre-compact` has no growth gate.
-5. **Prompt.** `prompts/<snapshot|sweep>.txt` plus the last
-   `CALAMUS_TAIL_*` bytes of the transcript. Prompts are shipped files and
-   cannot be overridden by project configuration.
-6. **Backend call** under a portable timeout (`lib/timeout.py`; macOS has no
+   `CALAMUS_MIN_BYTES_*`; or the same `(host, session, event)` already ran
+   within `CALAMUS_DEDUPE_SECS`.
+5. **Read the window.** Take the transcript's current end offset (`eof`).
+   For `turn-stop` and `session-end`, start at the per-session sweep offset
+   in `.calamus/state/`; for `pre-compact`, start at zero. In both cases
+   read at most the last `CALAMUS_RAW_WINDOW` raw bytes, pass them through
+   the host extractor (4.7), and keep the last `CALAMUS_TAIL_*` characters
+   of the extracted text. `turn-stop` and `session-end` skip with a log line
+   when the extracted text is shorter than `CALAMUS_MIN_TEXT`, leaving the
+   offset unchanged so text accumulates until it is worth a call.
+   `pre-compact` has no text minimum beyond non-empty.
+6. **Prompt.** `prompts/<snapshot|sweep>.txt` plus the extracted text.
+   Prompts are shipped files and cannot be overridden by project
+   configuration.
+7. **Backend call** under a portable timeout (`lib/timeout.py`; macOS has no
    `timeout`), limit `CALAMUS_BACKEND_TIMEOUT`.
-7. **Append.** `NO_CHECKPOINT` writes nothing. Otherwise append the existing
+8. **Append.** `NO_CHECKPOINT` writes nothing. Otherwise append the existing
    marker comment (`SESSION`, `COMPACT`, or `POST-COMPACT RESUME`) and the
    entry to `docs/dev_journal.md`, creating it with the standard header if
-   absent.
-8. **Failure path.** Backend missing, non-zero, empty, or timed out: append
+   absent. After a verdict (an entry or `NO_CHECKPOINT`) on `turn-stop` or
+   `session-end`, advance the sweep offset to `eof`; `pre-compact` never
+   moves it.
+9. **Failure path.** Backend missing, non-zero, empty, or timed out.
+   `turn-stop`: log only and leave the offset unchanged, so the next event
+   retries the same text. `pre-compact` and `session-end`: append
    `<!-- CALAMUS-PENDING: <date> | id:<session> | host:<h> | event:<e> -->`
    and record the transcript path in `<root>/.calamus/state/pending/<id>`.
    The journal never contains a local path.
-9. **Level 1 gate** on what was written (skipped for pending stubs and
+10. **Level 1 gate** on what was written (skipped for pending stubs and
    markers): same backend, prompt `prompts/eval-gate.txt`. A failing verdict
    appends the existing `EVAL-FAIL` note, now naming backend and model.
    Disabled by `CALAMUS_LEVEL1_GATE=off`.
-10. **Exit 0 and print nothing** on every path. The whole pipeline runs in a
+11. **Exit 0 and print nothing** on every path. The whole pipeline runs in a
     subshell with `|| true`. This preserves the repository's hard constraint
     that `PreCompact` can never block compaction, and extends it to every
     event so stdout is never parsed as host directives.
@@ -258,9 +291,11 @@ so a cloned repository cannot cause command execution at hook time.
 | `CALAMUS_EVAL_BACKEND` | `claude` | Level 2 scorer; independent of host |
 | `CALAMUS_LEVEL1_GATE` | `on` | |
 | `CALAMUS_BACKEND_TIMEOUT` | `25` | seconds per backend call; two calls fit a 60 s host budget |
-| `CALAMUS_TAIL_SWEEP` / `CALAMUS_TAIL_SNAPSHOT` | `28000` / `20000` | bytes, as today |
-| `CALAMUS_MIN_BYTES_SWEEP` / `CALAMUS_MIN_BYTES_SNAPSHOT` | `800` / `500` | as today |
-| `CALAMUS_MIN_GROWTH` | `2000` | as today's Codex Stop gate |
+| `CALAMUS_TAIL_SWEEP` / `CALAMUS_TAIL_SNAPSHOT` | `28000` / `20000` | characters of extracted text sent to the backend; same numbers as today's byte caps |
+| `CALAMUS_RAW_WINDOW` | `262144` | max raw transcript bytes read per call |
+| `CALAMUS_EXTRACT` | `on` | `off` sends the raw tail, as today |
+| `CALAMUS_MIN_BYTES_SWEEP` / `CALAMUS_MIN_BYTES_SNAPSHOT` | `800` / `500` | minimum total transcript size, as today |
+| `CALAMUS_MIN_TEXT` | `1200` | minimum new extracted characters for `turn-stop` and `session-end`; replaces the raw-byte growth gate |
 | `CALAMUS_DEDUPE_SECS` | `30` | |
 | `CALAMUS_SESSION_END_MODE` | `auto` | `auto` = `sweep` on claude-code, `stub` on codex/cursor |
 
@@ -268,6 +303,8 @@ Pin policy (carried over): default values equal the current pins, so moving
 them into config is a relocation, not a model change. Changing a pin or the
 backend makes scores incomparable; the Level 2 report header records the
 resolved backend and model, and any pin change requires re-baselining.
+Moving capture input from a raw tail to extracted text (4.7) also changes
+what the model sees, so it is validated as described in section 7.
 
 ### 4.5 Host matrix and registration
 
@@ -304,13 +341,21 @@ with flat `{"command", "timeout"}` entries.
 Notes:
 
 - Codex `SessionEnd` and Cursor `sessionEnd` run in stub mode: they append a
-  pending stub only if uncaptured growth exists. `CALAMUS_SESSION_END_MODE=sweep`
+  pending stub only if at least `CALAMUS_MIN_TEXT` characters of extracted
+  text remain past the sweep offset. `CALAMUS_SESSION_END_MODE=sweep`
   promotes them once a host's real budget is measured.
 - Cursor imports `.claude/settings.json` hooks by default. Use either
   `.cursor/hooks.json` or the import, not both; the dedupe window is a
   backstop only.
 - Codex project-local hooks require a trusted `.codex/` layer and `/hooks`
   review. The installer documents this rather than working around it.
+- `--host generic` has no registration template. A custom agent, CI job, or
+  SDK callback invokes the four events directly, with the payload as JSON on
+  stdin (`session_id`, `cwd`, `transcript_path`) or as `CALAMUS_SESSION_ID`,
+  `CALAMUS_CWD`, and `CALAMUS_TRANSCRIPT`. `CALAMUS_BACKEND=auto` has no host
+  CLI to resolve to, so it uses `generic` when `CALAMUS_LLM_CMD` is set and
+  otherwise takes the failure path. `session-end` defaults to `sweep`, since
+  the caller controls its own time budget.
 
 ### 4.6 Installer
 
@@ -326,6 +371,40 @@ Notes:
 
 It does not edit any host settings file. Symlink-following behavior of each
 host is confirmed during verification (section 7).
+
+### 4.7 Transcript extraction
+
+`scripts/lib/extract.py <host> <path> <start> <raw-window> <cap>` reads the
+transcript from `max(start, eof - raw-window)`, drops a leading partial
+line, and prints JSON `{"eof": <offset>, "text": "<extracted>"}`. The engine
+uses `eof` as the next sweep offset (4.2 step 8).
+
+Output is plain text, one item per line:
+
+```
+USER: <text>
+ASSISTANT: <text>
+[tool] <name>: <argument summary, at most 120 characters>
+[result] <first 200 characters>
+```
+
+Kept: user and assistant text; tool calls as one-line summaries (they carry
+the files-affected signal); the start of each tool result (it carries test
+and build evidence). Dropped: reasoning and thinking blocks, signatures and
+encrypted content, system and metadata records, binary and image data, and
+the remainder of long tool results.
+
+| Host | Extractor | Status |
+|---|---|---|
+| claude-code | Parses Claude Code's JSONL records (`user` and `assistant` records whose message content blocks are `text`, `tool_use`, `tool_result`, or `thinking`) | Block and field names are confirmed against a real local transcript during implementation; only aggregate statistics are recorded |
+| codex, cursor, generic | Generic JSONL harvester: for each line keep string values under `text`, `content`, `message`, `output`; skip subtrees under `thinking`, `reasoning`, `encrypted_content`, `signature`; use a `role` of `user` or `assistant` as the line prefix; pass non-JSON lines through unchanged | Unverified: no Codex or Cursor transcript samples exist in the authoring environment. Replaced by host-specific extractors once samples are available |
+
+Fail-safe: if the extractor errors, times out, or returns empty text for a
+non-empty window, the engine logs `extract-fallback` and sends the raw tail
+(the last `CALAMUS_TAIL_*` bytes), so extraction can never stop a capture.
+`CALAMUS_EXTRACT=off` forces the raw tail. Extraction removes most tool
+output from what is sent to a backend, which reduces, but does not
+eliminate, incidental content leaving the session.
 
 ## 5. Rebrand and documentation changes
 
@@ -400,6 +479,21 @@ The repository has no toolchain today; this change adds a small one.
    symlinked and `--copy` installs are checked for skill discovery.
 5. Codex and Cursor: synthetic payload fixtures built from documented fields
    only. Their live behavior is labeled documentation-verified, not tested.
+6. Extraction and window tests in `tests/run.sh`, on synthetic transcripts
+   per host: user and assistant text kept; thinking and long tool results
+   dropped; tool calls summarized; a partial leading line dropped; a second
+   sweep sends only text added since the first (the fake backend records its
+   stdin and the test asserts no overlap); the offset does not advance on
+   backend failure and does advance on `NO_CHECKPOINT`; extractor failure
+   and empty output fall back to the raw tail.
+7. Token measurement on a real local Claude Code transcript, read-only,
+   recording only aggregates (raw bytes, extracted characters, and a
+   characters/4 token estimate) in the engineering journal. Extraction ships
+   with `CALAMUS_EXTRACT=on` only if a before/after Level 2 comparison on the
+   same session shows no regression; otherwise it ships `off` until fixed.
+8. `--host generic` tests: payload as stdin JSON and as environment
+   variables, all four events, and `auto` resolution with and without
+   `CALAMUS_LLM_CMD`.
 
 ## 8. Risks and unverified items
 
@@ -413,10 +507,12 @@ The repository has no toolchain today; this change adds a small one.
 - Docs were read through a summarizing fetch tool that misreported at least
   one flag (`--safe-mode`); the two highest-impact claims (F3, F5) were
   cross-checked with a second fetch, the rest were not.
-- A raw transcript tail includes tool output and JSONL structure; capture
-  quality may vary by host format. Deferred per non-goals.
+- Extraction can drop evidence (long tool results are truncated), and its
+  Codex, Cursor, and generic paths are untested on real transcripts. The
+  raw-tail fallback and the before/after Level 2 check in section 7 bound
+  the risk.
 - `turn-stop` runs a model call at qualifying turn ends on Codex and Cursor,
-  adding latency; `CALAMUS_MIN_GROWTH` tunes it.
+  adding latency; `CALAMUS_MIN_TEXT` tunes it.
 
 ## 9. Git workflow
 

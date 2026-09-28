@@ -101,3 +101,22 @@
 > — see [PI-POSITIONING] | 2026-09-26: Rebrand From Skill Garden to One Named Skill.
 
 ---
+
+<!-- SESSION: 2026-09-27 20:36 | calamus spec amendment -->
+
+### [CP-ARCHITECTURE] | 2026-09-27: Token-Bounded Capture and Generic Host Added to Calamus Spec
+
+**Summary:** Amended the Calamus spec so hook capture sends only text added since the last sweep (capped), passes it through a per-host transcript extractor that drops thinking blocks and long tool output, and can be called from any runtime through a `generic` host. Prompted by a portability and token-cost review of the original design.
+
+**Files/Modules Affected:** `docs/superpowers/specs/2026-09-26-calamus-design.md` (sections 2.1, 4.2, 4.4, 4.5, 4.7, 7, 8).
+
+**Key Trade-off:** Committed to the extractor before measuring how noisy real transcripts are, accepting that the Codex, Cursor, and generic paths are best-effort until samples exist. Bounded that risk with a raw-tail fallback and a before/after Level 2 check that decides whether extraction ships on by default. Consolidating into one skill was found to be token-neutral, so it is justified by install and naming, not cost.
+
+**Evidence:** Sizes measured from the current files (`wc -c`: adapter 1709 B, the two SKILL.md files 9017 B and 10371 B), converted with a characters/4 estimate rather than a tokenizer. The earlier sweep design resent a 28000-byte tail on every qualifying turn-stop, read from the existing hook scripts. Platform hook and skill support for Gemini CLI, Copilot CLI, Bedrock AgentCore, and Google ADK comes from search summaries, not full docs. Nothing implemented yet.
+
+**Follow-ups:** Measure raw versus extracted size on a real local transcript during implementation; confirm the extractor's field names against it; obtain Codex and Cursor transcript samples.
+
+> **[CROSS-LOG]** Positioning implication logged in `./docs/product_insights.md`
+> — see [PI-POSITIONING] | 2026-09-27: State Where Calamus Applies and Where It Does Not.
+
+---

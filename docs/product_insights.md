@@ -83,3 +83,23 @@
 > — see [CP-ARCHITECTURE] | 2026-09-26: Calamus Design — Common Core With Host Shims.
 
 ---
+
+### [PI-POSITIONING] | 2026-09-27: State Where Calamus Applies and Where It Does Not
+
+**Observation:**
+- The owner asked how agnostic Calamus is and whether it holds up across custom agents and major cloud agent platforms. The honest answer differs by layer: the skill text ports widely, the hook engine needs a shell, a local repo, and a transcript file, and hosted agent platforms use in-process callbacks and their own memory services instead.
+
+**Why It Matters:**
+- The word "agnostic" invites a broader reading than the design supports. Readers evaluating the skill may assume it works for deployed agents, when it targets coding agents working in a repository.
+
+**Evidence:**
+- **Source:** Owner question in session; search summaries of platform hook and memory support.
+- **Strength:** Medium
+
+**Hypothesis / Next Step:**
+- If the README states plainly what each layer runs on and where Calamus does not apply, readers will form accurate expectations sooner. Add that table when the README is rewritten, and verify the platform claims against full docs first.
+
+> **[CROSS-LOG]** Engineering design change logged in `./docs/dev_journal.md`
+> — see [CP-ARCHITECTURE] | 2026-09-27: Token-Bounded Capture and Generic Host Added to Calamus Spec.
+
+---
