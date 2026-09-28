@@ -75,6 +75,14 @@ Consolidation is token-neutral, and slightly worse for a single-journal
 task. Its value is one name, one install, and one config. The token savings
 come from the hook changes in 4.2 and 4.7.
 
+Fixed per-call overhead: a six-word prompt through `claude -p --safe-mode
+--tools ""` on the pinned model consumed 3,698 input tokens with no cache
+hits (measured once, Claude Code 2.1.283, 2026-09-27; Codex and Cursor are
+unmeasured). A capture makes up to two calls, so about half of a ~15K-token
+capture was overhead before extraction. Once extraction shrinks the payload,
+call count dominates, so thresholds are tuned to amortize the overhead (4.4)
+and the model-judged gate is sampled (4.2 step 10).
+
 ## 3. Layout
 
 The repository root keeps development files. The distributable skill lives
@@ -105,6 +113,7 @@ skills/calamus/
     calamus-install            symlinks the skill, prints host config
   assets/
     calamus.env                defaults: pins, thresholds
+    profiles/                  claude.env  codex.env  cursor.env  generic.env (measured tuning)
     adapter.md                 host-neutral snippet for CLAUDE.md / AGENTS.md
     hosts/{claude-code,codex,cursor}/hooks.json     registration templates
     examples/                  example entries (from journaling/docs/)
@@ -238,9 +247,14 @@ Registration templates pass both flags; nothing is auto-detected.
    and record the transcript path in `<root>/.calamus/state/pending/<id>`.
    The journal never contains a local path.
 10. **Level 1 gate** on what was written (skipped for pending stubs and
-   markers): same backend, prompt `prompts/eval-gate.txt`. A failing verdict
-   appends the existing `EVAL-FAIL` note, now naming backend and model.
-   Disabled by `CALAMUS_LEVEL1_GATE=off`.
+    markers), in two parts. (a) A structural check, no model call, on every
+    capture: required fields present per the Lightweight schema, tag in the
+    allowed list, entry non-empty. (b) A model-judged check with
+    `prompts/eval-gate.txt` through the same backend: on every capture when
+    `CALAMUS_LEVEL1_GATE=full`, on 1 in `CALAMUS_LEVEL1_SAMPLE` captures when
+    `sampled` (a per-project counter in `.calamus/state/`), and never when
+    `structural` or `off`. A failing verdict of either part appends the
+    existing `EVAL-FAIL` note, naming the part, backend, and model.
 11. **Exit 0 and print nothing** on every path. The whole pipeline runs in a
     subshell with `|| true`. This preserves the repository's hard constraint
     that `PreCompact` can never block compaction, and extends it to every
@@ -255,7 +269,7 @@ must run read-only, with no tools, with user hooks disabled, and with
 
 | Backend | Invocation | Status |
 |---|---|---|
-| `claude` | `claude --print --safe-mode --tools "" --model "$CALAMUS_CLAUDE_MODEL"` | Flags verified locally |
+| `claude` | `claude --print --safe-mode --tools "" --model "$CALAMUS_CLAUDE_MODEL"` | Flags verified locally. `--bare` is not used: it failed with "Not logged in" under login-based auth (measured 2026-09-27) |
 | `codex` | `codex exec --sandbox read-only --skip-git-repo-check -c model_reasoning_effort=low --model "$CALAMUS_CODEX_MODEL" -o <tmpfile>`; binary from `PATH`, then `CALAMUS_CODEX_BIN`, then the desktop app's bundled CLI | Carried over from the current script; Codex not installed locally |
 | `cursor` | Cursor CLI headless mode. Flags are confirmed from Cursor's CLI documentation during implementation; if they cannot be confirmed, the backend ships as a stub that exits non-zero with an "unverified" log line | Unverified |
 | `generic` | `sh -c "$CALAMUS_LLM_CMD"` with the prompt on stdin | Covers any other CLI or local model |
@@ -266,13 +280,18 @@ Codex user can choose `claude`. Switching backend sends transcript excerpts
 to that provider; the README states this.
 
 **No silent model substitution.** A backend never falls back to a different
-backend or model. Unavailable means the failure path (4.2 step 8) for
+backend or model. Unavailable means the failure path (4.2 step 9) for
 capture, and a clear error for the Level 2 scorer.
+
+**Lean path.** `generic` can point at a direct API call, which avoids the
+CLI's fixed per-call overhead (2.1). It needs an API key, so it is opt-in
+and documented in the README.
 
 ### 4.4 Configuration
 
 Precedence: environment variables, then `<root>/.calamus/calamus.env`, then
-`${XDG_CONFIG_HOME:-$HOME/.config}/calamus/calamus.env`, then the shipped
+`${XDG_CONFIG_HOME:-$HOME/.config}/calamus/calamus.env`, then the backend
+profile `assets/profiles/<backend>.env`, then the shipped
 `assets/calamus.env`. Files are parsed as data, never sourced or evaluated:
 only `CALAMUS_[A-Z0-9_]+=value` lines are read.
 
@@ -289,13 +308,14 @@ so a cloned repository cannot cause command execution at hook time.
 | `CALAMUS_CURSOR_MODEL` | empty | no baseline yet |
 | `CALAMUS_CODEX_BIN` | empty | explicit Codex binary; env or user-level only |
 | `CALAMUS_EVAL_BACKEND` | `claude` | Level 2 scorer; independent of host |
-| `CALAMUS_LEVEL1_GATE` | `on` | |
+| `CALAMUS_LEVEL1_GATE` | `sampled` | `structural` (free check only), `sampled` (free check every capture, model judge on 1 in `CALAMUS_LEVEL1_SAMPLE`), `full` (model judge every capture), `off` |
+| `CALAMUS_LEVEL1_SAMPLE` | `4` | |
 | `CALAMUS_BACKEND_TIMEOUT` | `25` | seconds per backend call; two calls fit a 60 s host budget |
 | `CALAMUS_TAIL_SWEEP` / `CALAMUS_TAIL_SNAPSHOT` | `28000` / `20000` | characters of extracted text sent to the backend; same numbers as today's byte caps |
 | `CALAMUS_RAW_WINDOW` | `262144` | max raw transcript bytes read per call |
 | `CALAMUS_EXTRACT` | `on` | `off` sends the raw tail, as today |
 | `CALAMUS_MIN_BYTES_SWEEP` / `CALAMUS_MIN_BYTES_SNAPSHOT` | `800` / `500` | minimum total transcript size, as today |
-| `CALAMUS_MIN_TEXT` | `1200` | minimum new extracted characters for `turn-stop` and `session-end`; replaces the raw-byte growth gate |
+| `CALAMUS_MIN_TEXT` | `8000` | minimum new extracted characters for `turn-stop` and `session-end`; replaces the raw-byte growth gate. About 2K tokens, so content is at least a third of a call given the measured ~3.7K fixed overhead (2.1). Provisional until a backend is measured. |
 | `CALAMUS_DEDUPE_SECS` | `30` | |
 | `CALAMUS_SESSION_END_MODE` | `auto` | `auto` = `sweep` on claude-code, `stub` on codex/cursor |
 
@@ -305,6 +325,18 @@ backend makes scores incomparable; the Level 2 report header records the
 resolved backend and model, and any pin change requires re-baselining.
 Moving capture input from a raw tail to extracted text (4.7) also changes
 what the model sees, so it is validated as described in section 7.
+
+**Backend profiles.** `assets/profiles/<backend>.env` holds provider-specific
+tuning as data: `CALAMUS_MIN_TEXT`, the tail caps, and the backend timeout.
+A profile value must carry a `# measured:` comment giving the number, CLI
+version, and date; a key without a measurement is omitted so the shipped
+default applies. Profiles never set model pins, which stay in
+`assets/calamus.env` so every pin is one grep away. Profiles ship for
+`claude` (measured), `codex`, `cursor`, and `generic` (empty until measured).
+Provider-specific prompt overlays (`prompts/<backend>/<name>.txt`, resolved
+before `prompts/<name>.txt`) are added only when a Level 2 comparison shows a
+measured gap on that provider; none ship initially. Everything else,
+including the skill text, ships once for all providers.
 
 ### 4.5 Host matrix and registration
 
@@ -494,6 +526,14 @@ The repository has no toolchain today; this change adds a small one.
 8. `--host generic` tests: payload as stdin JSON and as environment
    variables, all four events, and `auto` resolution with and without
    `CALAMUS_LLM_CMD`.
+9. Gate and profile tests: the structural check runs on every capture and
+   rejects an entry missing a required field; `sampled` invokes the model
+   judge on exactly 1 in N captures using the state counter; profile
+   precedence is env, project, user, profile, defaults; every profile value
+   carries a `# measured:` comment; no profile sets a model pin.
+10. Overhead calibration: record each available backend's fixed per-call
+    overhead (trivial-prompt usage report) in its profile comment;
+    unavailable backends stay unmeasured.
 
 ## 8. Risks and unverified items
 
@@ -513,6 +553,10 @@ The repository has no toolchain today; this change adds a small one.
   the risk.
 - `turn-stop` runs a model call at qualifying turn ends on Codex and Cursor,
   adding latency; `CALAMUS_MIN_TEXT` tunes it.
+- The fixed-overhead figure is one measurement on one CLI version and moves
+  with CLI releases; profile comments record version and date so stale
+  values are visible. Codex and Cursor overheads are unknown, and their
+  profiles inherit provisional defaults.
 
 ## 9. Git workflow
 

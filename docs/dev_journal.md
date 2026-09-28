@@ -120,3 +120,19 @@
 > — see [PI-POSITIONING] | 2026-09-27: State Where Calamus Applies and Where It Does Not.
 
 ---
+
+<!-- SESSION: 2026-09-27 21:11 | calamus overhead tuning -->
+
+### [CP-CONSTRAINT] | 2026-09-27: Fixed Per-Call Overhead Dominates Hook Capture Cost
+
+**Summary:** Measured the fixed token overhead of a headless `claude -p` call and found it is the main cost of a hook capture once transcript extraction shrinks the payload. Amended the Calamus spec to add backend profiles for measured tuning, raise the default minimum-text threshold, and make the model-judged Level 1 gate sampled instead of per-capture.
+
+**Files/Modules Affected:** `docs/superpowers/specs/2026-09-26-calamus-design.md` (sections 2.1, 3, 4.2 step 10, 4.3, 4.4, 7, 8).
+
+**Key Trade-off:** Sampling the model-judged gate at 1 in 4 saves roughly 28% of tokens per capture but reduces eval coverage; a free structural check still runs on every capture and `full` mode remains available. Provider-specific tuning lives in data profiles that must cite a measurement, rather than in forked prompts or separate packages.
+
+**Evidence:** One call with a six-word prompt through `claude -p --safe-mode --tools ""` on the pinned model used 3,698 input tokens and 38 output tokens, with no cache hits, at about $0.004. The same call with `--bare` failed with "Not logged in", so `--safe-mode` is the only usable guard under login-based auth. `timeout` is not available on macOS, which supports the `lib/timeout.py` design. All from a single run on one CLI version; Codex and Cursor overheads are unmeasured.
+
+**Follow-ups:** Calibrate each available backend during implementation and record it in its profile; owner review of the spec.
+
+---
