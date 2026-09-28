@@ -1,39 +1,43 @@
-#!/usr/bin/env bash
-# scripts/journal-init
-# Initializes ./docs/dev_journal.md and ./docs/product_insights.md
-# in the current git repo (or current directory if not in a repo).
-set -euo pipefail
+#!/usr/bin/env python3
+"""Create both Calamus journals in ./docs of the current project.
 
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-cd "$ROOT"
-mkdir -p docs
+Usage: calamus-init [--format md|xml|jsonl|human|model] [--root DIR]
+"""
+import argparse
+import os
+import sys
 
-if [ ! -f docs/dev_journal.md ]; then
-  cat > docs/dev_journal.md << 'EOF'
-# Engineering Development Journal
-> Chronological log of architecture decisions, implementation pivots,
-> constraint discoveries, verification results, and engineering milestones.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "lib"))
+import cli  # noqa: E402
+import journal  # noqa: E402
+import render  # noqa: E402
 
----
-EOF
-  echo "✓ docs/dev_journal.md"
-else
-  echo "→ docs/dev_journal.md already exists"
-fi
 
-if [ ! -f docs/product_insights.md ]; then
-  cat > docs/product_insights.md << 'EOF'
-# Product Insight Journal
-> Chronological log of user pain points, UX friction, product hypotheses,
-> positioning insights, roadmap trade-offs, experiments, and product decisions.
+def main():
+    ap = argparse.ArgumentParser(description="Create both Calamus journals.")
+    ap.add_argument("--format", default=os.environ.get("CALAMUS_FORMAT", "md"))
+    ap.add_argument("--root")
+    args = ap.parse_args()
+    fmt_env = journal.canonical_format(args.format)
+    if not fmt_env:
+        cli.die("unknown format %r; use md, xml, or jsonl" % args.format, 2)
+    root = cli.project_root(args.root)
+    for name in ("engineering", "product"):
+        path, fmt, warning = journal.resolve(root, name, fmt_env)
+        rel = os.path.relpath(path, root)
+        if warning:
+            print("! %s" % warning)
+        if os.path.exists(path):
+            print("→ %s already exists" % rel)
+            continue
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "x", encoding="utf-8") as f:
+            f.write(render.header(name, fmt))
+        print("✓ %s" % rel)
+    print("")
+    print("Journals ready in %s/docs/." % os.path.basename(root))
+    print("Add .calamus/ to .gitignore; it holds hook state and logs.")
 
----
-EOF
-  echo "✓ docs/product_insights.md"
-else
-  echo "→ docs/product_insights.md already exists"
-fi
 
-echo ""
-echo "Journal system ready at $ROOT/docs/"
-echo "Next: install hooks and adapters — see journaling/README.md"
+if __name__ == "__main__":
+    main()
