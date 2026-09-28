@@ -123,3 +123,25 @@
 > — see [CP-ARCHITECTURE] | 2026-09-27: Canonical Entry Schema With Md/XML/JSONL Renderers and Query Recall.
 
 ---
+
+### [PI-ONBOARDING] | 2026-09-28: Cursor Users Need a Backend Choice at Install
+
+<!-- calamus id:20260928-1429-c0d5 schema:1 variant:lightweight -->
+
+**Observation:**
+- With the Cursor backend disabled, a Cursor user who installs hooks with default settings gets pending markers instead of journal entries until they set CALAMUS_BACKEND to claude or generic.
+
+**Why It Matters:**
+- The first-run experience on Cursor would look broken even though the skill works, which undercuts the one-install, three-hosts positioning.
+
+**Evidence:**
+- **Source:** Implementation discovery from Cursor CLI headless documentation
+- **Strength:** Medium
+
+**Hypothesis / Next Step:**
+- Have calamus-install --host cursor state the backend choice explicitly, and revisit once Cursor documents a model flag and a tool-free mode.
+
+> **[CROSS-LOG]** Engineering root cause logged in `./docs/dev_journal.md`
+> — see [CP-MILESTONE] | 2026-09-28: Calamus Skill and Hook Engine Implemented With Offline Tests.
+
+---

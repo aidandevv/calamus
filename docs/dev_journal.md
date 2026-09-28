@@ -171,3 +171,56 @@
 **Follow-ups:** Owner review of the spec; decide later whether to pin the dated snapshot; build the Level 4 golden set before any improvement loop is considered.
 
 ---
+
+<!-- SESSION: 2026-09-28 10:30 | calamus implementation -->
+
+### [CP-MILESTONE] | 2026-09-28: Calamus Skill and Hook Engine Implemented With Offline Tests
+
+<!-- calamus id:20260928-1429-14a0 schema:1 variant:lightweight -->
+
+**Summary:** Implemented plan Tasks 1-13: the journaling skill pair became one router skill, skills/calamus, backed by a JSON entry schema that drives validation, md/xml/jsonl rendering, parsing, prompt field lists, and generated reference templates, plus one host-neutral hook engine replacing four per-host scripts.
+
+**Files/Modules Affected:** `skills/calamus/SKILL.md`, `skills/calamus/scripts/hook.sh`, `skills/calamus/scripts/lib/`, `skills/calamus/assets/schema/entry.schema.json`, `tests/`
+
+**Key Trade-off:** Shipped the Cursor backend as a failing stub because Cursor's CLI docs show no model flag and no way to disable tools, so a read-only call cannot be guaranteed; Cursor captures become pending markers unless another backend is chosen.
+
+**Evidence:** bash tests/run.sh passes: 50 Python tests and 270 shell assertions, including byte-exact md golden output, md-xml-jsonl-md round trip, every host x event, hanging and failing backends, dedupe across hosts, and the fail-closed Level 1 gate. Nothing has run against a live model yet.
+
+**Follow-ups:** Run plan Task 14 live checks with owner approval; Obtain Codex and Cursor transcript samples to replace the generic extractor; shellcheck and skills-ref were not available and were not run
+
+> **[CROSS-LOG]** Product impact logged in `./docs/product_insights.md`
+> — see [PI-ONBOARDING] | 2026-09-28: Cursor Users Need a Backend Choice at Install.
+
+---
+
+### [CP-DEBUG] | 2026-09-28: Append Path Accepted Parser-Only Fields That Bypassed Validation
+
+<!-- calamus id:20260928-1429-63e9 schema:1 variant:lightweight -->
+
+**Summary:** A background security review flagged content injection in the renderer; the root cause was that the append path kept the parser-only legacy, raw, and body fields from caller input, so any caller or backend reply could write unvalidated Markdown such as forged entries or pending markers. The writer now drops those fields and legacy body text is escaped line by line before rendering.
+
+**Files/Modules Affected:** `skills/calamus/scripts/lib/journal.py`, `skills/calamus/scripts/lib/render.py`, `skills/calamus/scripts/lib/capture.py`
+
+**Key Trade-off:** Escaped structural lines in legacy bodies with a leading backslash instead of fencing the whole body, keeping converted journals readable at the cost of slightly altered text on lossy conversions.
+
+**Evidence:** Two injection tests failed before the fix and pass after: forged headings and markers in raw, body, or legacy fields never reach the journal, and a converted body cannot create extra records.
+
+**Follow-ups:** None identified.
+
+---
+
+### [CP-TESTING] | 2026-09-28: Correction: Offline Suite Has 44 Python Tests, Not 50
+
+<!-- calamus id:20260928-1429-a2e6 schema:1 variant:lightweight -->
+
+**Summary:** The milestone entry 20260928-1429-14a0 overstated the Python test count; the suite runs 44 Python tests plus 270 shell assertions. The rest of that entry stands.
+
+**Files/Modules Affected:** `tests/`
+
+**Key Trade-off:** Appended a correction instead of editing the earlier entry, because journals are append-only.
+
+**Evidence:** python3 -m unittest discover -s tests reports Ran 44 tests; shell suites report 270 assertions.
+
+**Follow-ups:** None identified.
+
+---
