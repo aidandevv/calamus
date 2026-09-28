@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "hooks": {
+    "preCompact": [
+      {
+        "command": "__CALAMUS_DIR__/scripts/hook.sh --host cursor --event pre-compact",
+        "timeout": 45
+      }
+    ],
+    "stop": [
+      {
+        "command": "__CALAMUS_DIR__/scripts/hook.sh --host cursor --event turn-stop",
+        "timeout": 90
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "__CALAMUS_DIR__/scripts/hook.sh --host cursor --event session-end",
+        "timeout": 5
+      }
+    ]
+  }
+}

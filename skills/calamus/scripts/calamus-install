@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Install the calamus skill for one host and print the config to merge.
+#   calamus-install --host <claude-code|codex|cursor> [--copy]
+# Symlinks (or with --copy, copies) the skill into the host's skills
+# directory, then prints the hooks config and the adapter text. It never
+# edits a settings file and refuses to overwrite an existing install.
+set -eu
+
+usage() { echo "usage: calamus-install --host <claude-code|codex|cursor> [--copy]" >&2; exit 2; }
+
+host=""; copy=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --host) host="${2:-}"; shift 2 || usage ;;
+    --copy) copy=1; shift ;;
+    *) usage ;;
+  esac
+done
+
+src="$(cd "$(dirname "$0")/.." && pwd -P)"
+case "$host" in
+  claude-code) dest="$HOME/.claude/skills/calamus"
+    settings="~/.claude/settings.json (all projects) or .claude/settings.json (one project)"
+    adapter_to="~/.claude/CLAUDE.md or ./CLAUDE.md" ;;
+  codex) dest="$HOME/.agents/skills/calamus"
+    settings="~/.codex/hooks.json, or .codex/hooks.json in a trusted project"
+    adapter_to="~/.codex/AGENTS.md or ./AGENTS.md" ;;
+  cursor) dest="$HOME/.agents/skills/calamus"
+    settings="~/.cursor/hooks.json or .cursor/hooks.json"
+    adapter_to="./AGENTS.md or a Cursor rule" ;;
+  *) usage ;;
+esac
+
+if [ -e "$dest" ] || [ -L "$dest" ]; then
+  echo "refusing to overwrite existing $dest; remove it first to reinstall" >&2
+  exit 1
+fi
+mkdir -p "$(dirname "$dest")"
+if [ "$copy" -eq 1 ]; then
+  cp -R "$src" "$dest"
+  echo "Copied skill to $dest"
+else
+  ln -s "$src" "$dest"
+  echo "Linked $dest -> $src"
+fi
+
+echo
+echo "── Hooks: merge into $settings ──"
+python3 - "$src/assets/hosts/$host/hooks.json" "$dest" <<'PY'
+import json, shlex, sys
+path, dest = sys.argv[1], sys.argv[2]
+hook = shlex.quote(dest + "/scripts/hook.sh")
+with open(path) as f:
+    text = f.read()
+data = json.loads(text)
+def walk(node):
+    if isinstance(node, dict):
+        return {k: (v.replace("__CALAMUS_DIR__/scripts/hook.sh", hook) if k == "command" else walk(v))
+                for k, v in node.items()}
+    if isinstance(node, list):
+        return [walk(v) for v in node]
+    return node
+print(json.dumps(walk(data), indent=2))
+PY
+
+echo
+echo "── Adapter: paste into $adapter_to ──"
+cat "$src/assets/adapter.md"
+
+echo
+case "$host" in
+  codex) echo "Note: Codex runs project-local hooks only in a trusted .codex/ layer; review them with /hooks." ;;
+  cursor) echo "Note: Cursor also imports hooks from .claude/settings.json. Use one registration, not both." ;;
+esac
+echo "Note: add .calamus/ to each project's .gitignore; it holds hook state and logs."

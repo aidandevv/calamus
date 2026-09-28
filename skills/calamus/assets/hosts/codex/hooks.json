@@ -1,0 +1,48 @@
+{
+  "hooks": {
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "__CALAMUS_DIR__/scripts/hook.sh --host codex --event pre-compact",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "__CALAMUS_DIR__/scripts/hook.sh --host codex --event post-compact",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "__CALAMUS_DIR__/scripts/hook.sh --host codex --event turn-stop",
+            "timeout": 90
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "__CALAMUS_DIR__/scripts/hook.sh --host codex --event session-end",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}
