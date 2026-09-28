@@ -1,52 +1,23 @@
----
-name: engineering-journal
-description: >-
-  Maintain a running engineering development journal. Use when implementing
-  architecture, pivoting on an approach, completing a feature, fixing a
-  non-obvious bug, integrating systems, discovering constraints, or making
-  any engineering decision worth explaining later. Appends entries to
-  ./docs/dev_journal.md. Evaluates at end of every meaningful dev interaction.
----
+# Engineering Journal
 
-# Engineering Journal — Skill Instructions
-
-A model-agnostic agent instruction for maintaining a chronological engineering
-journal across agentic coding sessions. Works with Claude Code, Codex CLI,
-Cursor, Gemini CLI, and any Agent Skills-compatible runtime.
-
-Design rationale, research citations, and version history live in
-`../../README.md` (skill-level) and the repo-level `README.md`. This file
-contains only what the agent needs to do the job.
+Maintain `./docs/dev_journal.md` (or `.xml` / `.jsonl`) — a chronological,
+technically precise log of engineering decisions, implementation pivots,
+debugging lessons, constraint discoveries, and milestone completions. Write
+entries that will still be useful six months from now to a reader who was not
+present. Do not fabricate details.
 
 ---
 
-## Core Objective
+## Journal Header
 
-Maintain `./docs/dev_journal.md` — a chronological, technically precise log of
-engineering decisions, implementation pivots, debugging lessons, constraint
-discoveries, and milestone completions. Write entries that will still be useful
-six months from now to a reader who was not present.
+A new Markdown journal starts with:
 
-If the environment supports file writes, append directly. If not, output the
-exact Markdown inside a copyable code fence and tell the user to append it.
-
-Do not overwrite existing content. Do not fabricate details.
-
----
-
-## Initialization
-
-If `./docs/dev_journal.md` does not exist:
-
-```bash
-mkdir -p docs
-cat > docs/dev_journal.md << 'EOF'
+```markdown
 # Engineering Development Journal
 > Chronological log of architecture decisions, implementation pivots,
 > constraint discoveries, verification results, and engineering milestones.
 
 ---
-EOF
 ```
 
 ---
@@ -101,46 +72,23 @@ user whether to wait.
 | `[CP-DEBUG]` | Non-obvious bug, root cause, and fix with a useful engineering lesson |
 | `[CP-TESTING]` | Meaningful validation strategy, test harness, or verification result |
 | `[CP-INTEGRATION]` | Boundary between systems, services, agents, databases, or APIs |
-| `[CP-COMPACT-SNAPSHOT]` | Auto-written by PreCompact hook before context compaction |
+| `[CP-COMPACT-SNAPSHOT]` | Pre-compaction state; written by the hook, or manually when no hooks are installed |
 
 If multiple types apply, choose the one that best captures the main story.
 
 ---
 
-## Compaction Awareness
-
-Do not manually log before running `/compact`. The `PreCompact` hook handles
-this automatically — it fires before every compaction (manual or auto) and
-writes a `[CP-COMPACT-SNAPSHOT]` entry capturing current progress. After
-compaction, the `PostCompact` hook appends a resume marker so the next context
-window knows where to pick up.
-
-If hooks are not installed, add a note manually before compacting:
-
-```markdown
-### [CP-COMPACT-SNAPSHOT] | YYYY-MM-DD: Pre-compaction state
-**Summary:** [What we are in the middle of.]
-**Files in progress:** [List.]
-**Next step:** [What to do immediately after compaction.]
----
-```
-
----
-
 ## Cross-Log Coordination
 
-| Observation type | Target file |
+| Observation type | Target journal |
 |---|---|
-| Architecture, implementation, debugging, testing, constraints, refactors, integrations | `dev_journal.md` |
-| User pain, UX friction, activation, retention, positioning, product hypotheses, roadmap | `product_insights.md` |
-| Both — technical constraint that directly changes user experience | **Both files** |
+| Architecture, implementation, debugging, testing, constraints, refactors, integrations | engineering |
+| User pain, UX friction, activation, retention, positioning, product hypotheses, roadmap | product |
+| Both — technical constraint that directly changes user experience | **both**, linked by `[CROSS-LOG]` |
 
-When writing to both, add a `[CROSS-LOG]` marker in each entry:
-
-```markdown
-> **[CROSS-LOG]** Product impact logged in `./docs/product_insights.md`
-> — see [PI-UX-FRICTION] | YYYY-MM-DD: [title].
-```
+With `calamus-append`, link an entry with a `crosslog` object:
+`{"journal": "product", "tag": "PI-UX-FRICTION", "date": "YYYY-MM-DD", "title": "...", "note": "Product impact"}`.
+In Markdown it renders as the blockquote shown at the end of each template.
 
 ---
 
@@ -149,21 +97,26 @@ When writing to both, add a `[CROSS-LOG]` marker in each entry:
 Use this when the observation is real but small, or when writing in a
 compressed context near session end. Prefer this over silence.
 
+<!-- BEGIN GENERATED: eng-lightweight -->
 ```markdown
-### [TAG] | YYYY-MM-DD: [Short Title]
+### [TAG] | YYYY-MM-DD: [Title]
 
-**Summary:** [1–2 sentences: decision made and why.]
+**Summary:** [1-2 sentences: decision made and why]
 
-**Files/Modules Affected:** [List or `None identified.`]
+**Files/Modules Affected:** `item`, `item` ... or `None identified.`
 
-**Key Trade-off:** [What was accepted or rejected and why.]
+**Key Trade-off:** [What was accepted or rejected and why]
 
-**Evidence:** [How we know this worked, or `Not yet verified.`]
+**Evidence:** [How we know this worked; status unverified if not yet verified] or `Not yet verified.`
 
-**Follow-ups:** [Open questions, or `None identified.`]
+**Follow-ups:** item; item ... or `None identified.`
+
+> **[CROSS-LOG]** Product impact logged in `./docs/product_insights.md`
+> — see [TAG] | YYYY-MM-DD: [title].
 
 ---
 ```
+<!-- END GENERATED: eng-lightweight -->
 
 ---
 
@@ -172,98 +125,125 @@ compressed context near session end. Prefer this over silence.
 Use for decisions that materially affect architecture, major milestones,
 non-obvious bugs, or anything you would explain in a post-mortem.
 
-```markdown
-### [TAG] | YYYY-MM-DD: [Descriptive Component/Feature Name]
+<!-- BEGIN GENERATED: eng-full -->
+````markdown
+### [TAG] | YYYY-MM-DD: [Title]
 
 **The Context & Problem:**
-- [Concrete technical goal, implementation problem, or architectural question.]
+- [Concrete technical goal, problem, or question]
 
 **Design Decisions & Trade-offs:**
-- **Choice:** [The specific design, library, pattern, or workflow selected.]
-- **Alternatives Considered:** [Serious alternatives, or state none were evaluated.]
-- **Why:** [Technical justification, constraints weighed, performance implications.]
+- **Choice:** [The design, library, pattern, or workflow selected]
+- **Alternatives Considered:** [Serious alternatives, or state none were evaluated]
+- **Why:** [Technical justification and constraints weighed]
 
 **The Pivot/Revision:**
-- [What changed during implementation. If the plan held, state why.]
+- [What changed during implementation; if the plan held, why]
 
 **Implementation Notes:**
-- **Files/Modules Affected:** [Relevant files, modules, functions, components.]
-- **Core Pattern Introduced:** [The implementation pattern or architectural mechanism.]
+- **Files/Modules Affected:** `item`, `item` ... or `None identified.`
+- **Core Pattern Introduced:** [The implementation pattern or mechanism] (optional)
 
 **Verification & Evidence:**
-- [Tests run, manual validation, logs, type checks, builds, API responses.
-  If not verified, state explicitly.]
+- [Tests, builds, logs, manual checks] or `Not yet verified.`
 
-**Documentation & References Utilized:**
-- [Only if references were consulted: `- [Name](URL) - Key takeaway`]
+**Documentation & References Utilized:** (optional)
+- [Only references actually consulted: [Name](URL) - takeaway]
 
-**Code Snapshot/Diff Concept:**
-- [Pseudocode, diff concept, schema, or concise snippet capturing the key idea.]
+**Code Snapshot/Diff Concept:** (optional)
+```
+[Pseudocode, diff concept, schema, or snippet]
+```
 
 **Cross-Log:**
-- [Related product entry in product_insights.md, or `None.`]
+- [Related product entry, if any] or `None.`
 
 **Open Questions / Follow-ups:**
-- [Unresolved risks, deferred improvements, edge cases. If none: `None identified.`]
+- [Unresolved risks, deferred work, edge cases] or `None identified.`
+
+> **[CROSS-LOG]** Product impact logged in `./docs/product_insights.md`
+> — see [TAG] | YYYY-MM-DD: [title].
 
 ---
-```
+````
+<!-- END GENERATED: eng-full -->
 
 ---
 
-## Session Boundary Markers
+## Compaction Snapshot
 
-Add this at the start of each new session's first entry to keep the flat
-file navigable as it grows:
+Written by the `pre-compact` hook. Without hooks, write one manually before
+compacting.
 
+<!-- BEGIN GENERATED: eng-snapshot -->
 ```markdown
-<!-- SESSION: YYYY-MM-DD HH:MM | [brief context, e.g. "auth refactor"] -->
+### [CP-COMPACT-SNAPSHOT] | YYYY-MM-DD: Pre-compaction state — [Title]
+
+**Summary:** [What is in progress, 1-2 sentences]
+
+**Files in progress:** `item`, `item` ... or `None identified.`
+
+**Decisions made this context window:**
+- [Key choices, at most 3] or `None identified.`
+
+**Immediate next step:** [Exactly what to do right after compaction]
+
+**Open questions:**
+- [Unresolved risks or blockers] or `None identified.`
+
+> **[CROSS-LOG]** Product impact logged in `./docs/product_insights.md`
+> — see [TAG] | YYYY-MM-DD: [title].
+
+---
 ```
+<!-- END GENERATED: eng-snapshot -->
 
 ---
 
-## Append Safety
+## JSON Fields for `calamus-append`
 
-- Always append. Never overwrite. Never delete previous entries unless
-  explicitly asked.
-- Before appending, check recent entries to avoid duplicating the same
-  checkpoint, decision, and moment.
-- If a prior decision changed, append a new entry explaining the revision.
-  Do not rewrite history.
-- Archive `dev_journal.md` to `dev_journal_archive_YYYY-MM.md` when it
-  exceeds roughly 500 entries.
+`scripts/calamus-append --journal engineering` takes one object (or
+`{"entries": [...]}`) with these fields. `journal` and `id` are filled in.
+Empty lists render as the `None identified.`-style text shown above.
 
----
+<!-- BEGIN GENERATED: eng-fields -->
+```text
+Lightweight:
+- "variant": "lightweight"
+- "tag": string, one of "CP-ARCHITECTURE" | "CP-PIVOT" | "CP-REFACTOR" | "CP-MILESTONE" | "CP-CONSTRAINT" | "CP-DEBUG" | "CP-TESTING" | "CP-INTEGRATION"
+- "date": string, YYYY-MM-DD
+- "title": string, short and specific
+- "summary": string (required) — 1-2 sentences: decision made and why.
+- "files": array of strings (may be empty, no backticks) — Files, modules, or components affected.
+- "tradeoff": string (required) — What was accepted or rejected and why.
+- "evidence": object {"status": "verified" | "unverified", "text": string} (required) — How we know this worked; status unverified if not yet verified.
+- "followups": array of strings (may be empty, no semicolons inside an item) — Open questions.
 
-## File-Writing Behavior
-
-**File access available:** Ensure `./docs/` and `./docs/dev_journal.md` exist,
-append entry, preserve all existing content, confirm briefly.
-
-**File access unavailable:** Output entry in a copyable code fence, tell the
-user to append to `./docs/dev_journal.md`, do not claim the file was modified.
-
----
-
-## Relationship to Product Insight Journal
-
-Engineering decisions → `dev_journal.md`
-Product decisions → `product_insights.md`
-Both → separate entries with `[CROSS-LOG]` markers linking them.
-
-Product insight skill: `../product-insight-journal/SKILL.md`
-
----
-
-## Global Adapter (paste into CLAUDE.md / AGENTS.md)
-
+Full:
+- "variant": "full"
+- "tag": string, one of "CP-ARCHITECTURE" | "CP-PIVOT" | "CP-REFACTOR" | "CP-MILESTONE" | "CP-CONSTRAINT" | "CP-DEBUG" | "CP-TESTING" | "CP-INTEGRATION"
+- "date": string, YYYY-MM-DD
+- "title": string, short and specific
+- "context": array of strings (required) — Concrete technical goal, problem, or question.
+- "design": object — Design Decisions & Trade-offs, with:
+  - "choice": string (required) — The design, library, pattern, or workflow selected.
+  - "alternatives": string (required) — Serious alternatives, or state none were evaluated.
+  - "why": string (required) — Technical justification and constraints weighed.
+- "pivot": array of strings (required) — What changed during implementation; if the plan held, why.
+- "impl": object — Implementation Notes, with:
+  - "files": array of strings (may be empty, no backticks) — Files, modules, functions, components.
+  - "pattern": string (optional) — The implementation pattern or mechanism.
+- "verification": array of strings (may be empty) — Tests, builds, logs, manual checks.
+- "references": array of strings (optional) — Only references actually consulted: [Name](URL) - takeaway.
+- "code": string (may span lines) (optional) — Pseudocode, diff concept, schema, or snippet.
+- "crosslog_notes": array of strings (may be empty) — Related product entry, if any.
+- "followups": array of strings (may be empty) — Unresolved risks, deferred work, edge cases.
 ```
-Follow engineering-journal skill at:
-  ~/.claude/skills/journaling/engineering-journal/SKILL.md
+<!-- END GENERATED: eng-fields -->
 
-Maintain: ./docs/dev_journal.md
+---
 
-At the end of meaningful engineering work, evaluate whether a checkpoint
-should be logged. Prefer Lightweight schema in long or compressed sessions.
-Never overwrite. Never fabricate.
-```
+## Archiving
+
+Archive the journal to `dev_journal_archive_YYYY-MM.md` (same extension as
+the journal) when it exceeds roughly 500 entries.

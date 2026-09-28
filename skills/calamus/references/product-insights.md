@@ -1,54 +1,23 @@
----
-name: product-insight-journal
-description: >-
-  Maintain a running product insight journal. Use when observing user pain,
-  UX friction, activation or retention patterns, positioning insights, roadmap
-  trade-offs, feature hypotheses, competitive signals, or any product decision
-  worth capturing for a future case study, PM interview, or founder update.
-  Appends entries to ./docs/product_insights.md. Evaluates at end of every
-  meaningful product or UX interaction.
----
+# Product Insight Journal
 
-# Product Insight Journal — Skill Instructions
-
-A model-agnostic agent instruction for maintaining a chronological product
-insight journal across agentic coding, design, and product-development
-workflows. Works with Claude Code, Codex CLI, Cursor, Gemini CLI, and any
-Agent Skills-compatible runtime.
-
-Design rationale, research citations, and version history live in
-`../../README.md` (skill-level) and the repo-level `README.md`. This file
-contains only what the agent needs to do the job.
+Maintain `./docs/product_insights.md` (or `.xml` / `.jsonl`) — a
+chronological log of user pain, UX friction, product hypotheses, positioning
+insights, roadmap trade-offs, experiments, and product decisions. Write
+entries that will support future portfolio write-ups, PM interview stories,
+and product retrospectives. Do not fabricate details.
 
 ---
 
-## Core Objective
+## Journal Header
 
-Maintain `./docs/product_insights.md` — a chronological log of user pain,
-UX friction, product hypotheses, positioning insights, roadmap trade-offs,
-experiments, and product decisions. Write entries that will support future
-portfolio write-ups, PM interview stories, and product retrospectives.
+A new Markdown journal starts with:
 
-If the environment supports file writes, append directly. If not, output the
-exact Markdown inside a copyable code fence and tell the user to append it.
-
-Do not overwrite existing content. Do not fabricate details.
-
----
-
-## Initialization
-
-If `./docs/product_insights.md` does not exist:
-
-```bash
-mkdir -p docs
-cat > docs/product_insights.md << 'EOF'
+```markdown
 # Product Insight Journal
 > Chronological log of user pain points, UX friction, product hypotheses,
 > positioning insights, roadmap trade-offs, experiments, and product decisions.
 
 ---
-EOF
 ```
 
 ---
@@ -144,14 +113,8 @@ When relevant, classify the main product risk being reduced or exposed:
 ## Cross-Log Coordination
 
 When an observation has both an engineering dimension and a product dimension
-worth preserving independently, write separate entries in both files.
-
-Add a `[CROSS-LOG]` marker:
-
-```markdown
-> **[CROSS-LOG]** Engineering root cause logged in `./docs/dev_journal.md`
-> — see [CP-CONSTRAINT] | YYYY-MM-DD: [title].
-```
+worth preserving independently, write separate entries in both journals,
+linked by `[CROSS-LOG]` (a `crosslog` object with `calamus-append`).
 
 Write cross-log entries when:
 - A technical constraint directly degrades the user experience
@@ -165,131 +128,147 @@ Write cross-log entries when:
 
 Use for small but real observations, or in compressed contexts.
 
+<!-- BEGIN GENERATED: pi-lightweight -->
 ```markdown
-### [TAG] | YYYY-MM-DD: [Observation Title]
+### [TAG] | YYYY-MM-DD: [Title]
 
 **Observation:**
-- [What was noticed?]
+- [What was noticed]
 
 **Why It Matters:**
-- [Impact on user experience, product strategy, or roadmap.]
+- [Impact on UX, strategy, or roadmap]
 
 **Evidence:**
-- **Source:** [Where this came from.]
-- **Strength:** [Strong / Medium / Weak]
+- **Source:** [Where this came from]
+- **Strength:** Strong / Medium / Weak
 
 **Hypothesis / Next Step:**
-- [What to test, build, measure, revisit, or ignore.]
+- [What to test, build, measure, revisit, or ignore]
+
+> **[CROSS-LOG]** Engineering root cause logged in `./docs/dev_journal.md`
+> — see [TAG] | YYYY-MM-DD: [title].
 
 ---
 ```
+<!-- END GENERATED: pi-lightweight -->
 
 ---
 
 ## Full Entry Schema
 
 Use for insights that affect roadmap, positioning, UX, growth, trust,
-onboarding, retention, or major feature decisions.
+onboarding, retention, or major feature decisions. Omit the
+Emotional/Social Job if the observation is purely about UI execution.
 
+<!-- BEGIN GENERATED: pi-full -->
 ```markdown
-### [TAG] | YYYY-MM-DD: [Observation Title]
+### [TAG] | YYYY-MM-DD: [Title]
 
 **Observation:**
-- [What was noticed? Be concrete.]
+- [What was noticed, concretely]
 
 **User / Journey Context:**
-- **User Segment:** [Who this affects, or `Unknown`.]
-- **Journey Stage:** [Discovery / onboarding / activation / core workflow /
-  retention / support / upgrade / sharing]
-- **User Goal:** [What the user was trying to accomplish.]
+- **User Segment:** [Who this affects] or `Unknown`
+- **Journey Stage:** Discovery / Onboarding / Activation / Core workflow / Retention / Support / Upgrade / Sharing
+- **User Goal:** [What the user was trying to accomplish]
 
 **Jobs-to-Be-Done Lens:**
-- **Functional Job:** [The practical progress the user wants.]
-- **Emotional/Social Job:** [What the user wants to feel, avoid, or signal.]
-  *(Omit if the observation is purely about UI execution.)*
+- **Functional Job:** [The practical progress the user wants]
+- **Emotional/Social Job:** [Omit if purely about UI execution] (optional)
 
 **Evidence:**
-- **Source:** [User quote / analytics / manual walkthrough / support issue /
-  competitor example / founder observation / implementation discovery]
-- **Strength:** [Strong / Medium / Weak]
-- **Notes:** [Concrete evidence. Do not invent.]
-- **Counter-Evidence:** [Known counter-signal, or `None identified.`]
+- **Source:** [Quote, analytics, walkthrough, support issue, competitor, founder observation, or implementation discovery]
+- **Strength:** Strong / Medium / Weak
+- **Notes:** [Concrete evidence. Do not invent]
+- **Counter-Evidence:** [Known counter-signal] or `None identified.`
 
 **Product Impact:**
-- [How this affects activation, retention, conversion, trust, clarity,
-  accessibility, differentiation, growth, revenue, or usability.]
+- [Effect on activation, retention, trust, and so on]
 
 **Product Risk Lens:**
-- **Primary Risk:** [Value / Usability / Feasibility / Viability / Trust /
-  Accessibility]
-- **Why:** [What this observation helps de-risk or exposes as risky.]
+- **Primary Risk:** Value / Usability / Feasibility / Viability / Trust / Accessibility
+- **Why:** [What this de-risks or exposes]
 
 **Hypothesis:**
-- [If we change X, then Y should improve because Z.]
+- [If we change X, then Y should improve because Z]
 
 **Decision / Next Step:**
-- [What to design, test, build, measure, ignore, or revisit.]
+- [What to design, test, build, measure, ignore, or revisit]
 
 **Priority Signal:**
-- **Reach:** [Low / Medium / High / Unknown]
-- **Impact:** [Low / Medium / High / Unknown]
-- **Confidence:** [Low / Medium / High]
-- **Effort:** [Low / Medium / High / Unknown]
+- **Reach:** Low / Medium / High / Unknown
+- **Impact:** Low / Medium / High / Unknown
+- **Confidence:** Low / Medium / High
+- **Effort:** Low / Medium / High / Unknown
 
-**Potential Content Angle:**
-- [How this might support a case study, portfolio write-up, founder
-  reflection, PM interview story, or LinkedIn post.]
+**Potential Content Angle:** (optional)
+- [Case study, write-up, or interview angle]
 
 **Cross-Log:**
-- [Related engineering entry in dev_journal.md, or `None.`]
+- [Related engineering entry, if any] or `None.`
 
 **Open Questions:**
-- [Unresolved risks, assumptions, or follow-ups. If none: `None identified.`]
+- [Unresolved risks, assumptions, follow-ups] or `None identified.`
+
+> **[CROSS-LOG]** Engineering root cause logged in `./docs/dev_journal.md`
+> — see [TAG] | YYYY-MM-DD: [title].
 
 ---
 ```
+<!-- END GENERATED: pi-full -->
 
 ---
 
-## Append Safety
+## JSON Fields for `calamus-append`
 
-- Always append. Never overwrite. Never delete previous entries unless
-  explicitly asked.
-- Do not duplicate an entry for the same observation, evidence, and decision.
-- If a prior insight changed, append a new entry explaining the revision.
+`scripts/calamus-append --journal product` takes one object (or
+`{"entries": [...]}`) with these fields. `journal` and `id` are filled in.
 
----
+<!-- BEGIN GENERATED: pi-fields -->
+```text
+Lightweight:
+- "variant": "lightweight"
+- "tag": string, one of "PI-USER-PAIN" | "PI-UX-FRICTION" | "PI-AHA-MOMENT" | "PI-FEATURE-IDEA" | "PI-POSITIONING" | "PI-ONBOARDING" | "PI-RETENTION" | "PI-METRIC" | "PI-EXPERIMENT" | "PI-COMPETITIVE" | "PI-ROADMAP" | "PI-PRICING" | "PI-TRUST" | "PI-ACCESSIBILITY" | "PI-GROWTH" | "PI-SUPPORT"
+- "date": string, YYYY-MM-DD
+- "title": string, short and specific
+- "observation": array of strings (required) — What was noticed.
+- "why": array of strings (required) — Impact on UX, strategy, or roadmap.
+- "evidence": object — Evidence, with:
+  - "source": string (required) — Where this came from.
+  - "strength": string, one of "Strong" | "Medium" | "Weak" (required)
+- "next_step": array of strings (required) — What to test, build, measure, revisit, or ignore.
 
-## File-Writing Behavior
-
-**File access available:** Ensure `./docs/` and `./docs/product_insights.md`
-exist, append entry, preserve all existing content, confirm briefly.
-
-**File access unavailable:** Output entry in a copyable code fence, tell the
-user to append to `./docs/product_insights.md`, do not claim modification.
-
----
-
-## Relationship to Engineering Journal
-
-Product decisions → `product_insights.md`
-Engineering decisions → `dev_journal.md`
-Both → separate entries with `[CROSS-LOG]` markers.
-
-Engineering journal skill: `../engineering-journal/SKILL.md`
-
----
-
-## Global Adapter (paste into CLAUDE.md / AGENTS.md)
-
+Full:
+- "variant": "full"
+- "tag": string, one of "PI-USER-PAIN" | "PI-UX-FRICTION" | "PI-AHA-MOMENT" | "PI-FEATURE-IDEA" | "PI-POSITIONING" | "PI-ONBOARDING" | "PI-RETENTION" | "PI-METRIC" | "PI-EXPERIMENT" | "PI-COMPETITIVE" | "PI-ROADMAP" | "PI-PRICING" | "PI-TRUST" | "PI-ACCESSIBILITY" | "PI-GROWTH" | "PI-SUPPORT"
+- "date": string, YYYY-MM-DD
+- "title": string, short and specific
+- "observation": array of strings (required) — What was noticed, concretely.
+- "context": object — User / Journey Context, with:
+  - "segment": string (may be empty) — Who this affects.
+  - "stage": string, one of "Discovery" | "Onboarding" | "Activation" | "Core workflow" | "Retention" | "Support" | "Upgrade" | "Sharing" (required)
+  - "goal": string (required) — What the user was trying to accomplish.
+- "jtbd": object — Jobs-to-Be-Done Lens, with:
+  - "functional": string (required) — The practical progress the user wants.
+  - "emotional": string (optional) — Omit if purely about UI execution.
+- "evidence": object — Evidence, with:
+  - "source": string (required) — Quote, analytics, walkthrough, support issue, competitor, founder observation, or implementation discovery.
+  - "strength": string, one of "Strong" | "Medium" | "Weak" (required)
+  - "notes": string (required) — Concrete evidence. Do not invent.
+  - "counter": string (may be empty) — Known counter-signal.
+- "impact": array of strings (required) — Effect on activation, retention, trust, and so on.
+- "risk": object — Product Risk Lens, with:
+  - "primary": string, one of "Value" | "Usability" | "Feasibility" | "Viability" | "Trust" | "Accessibility" (required)
+  - "why": string (required) — What this de-risks or exposes.
+- "hypothesis": array of strings (required) — If we change X, then Y should improve because Z.
+- "next_step": array of strings (required) — What to design, test, build, measure, ignore, or revisit.
+- "priority": object — Priority Signal, with:
+  - "reach": string, one of "Low" | "Medium" | "High" | "Unknown" (required)
+  - "impact": string, one of "Low" | "Medium" | "High" | "Unknown" (required)
+  - "confidence": string, one of "Low" | "Medium" | "High" (required)
+  - "effort": string, one of "Low" | "Medium" | "High" | "Unknown" (required)
+- "content_angle": array of strings (optional) — Case study, write-up, or interview angle.
+- "crosslog_notes": array of strings (may be empty) — Related engineering entry, if any.
+- "open_questions": array of strings (may be empty) — Unresolved risks, assumptions, follow-ups.
 ```
-Follow product-insight-journal skill at:
-  ~/.claude/skills/journaling/product-insight-journal/SKILL.md
-
-Maintain: ./docs/product_insights.md
-
-At the end of meaningful product, UX, growth, onboarding, retention,
-roadmap, or user-facing work, evaluate whether an insight should be logged.
-Prefer Lightweight schema for small observations. Never overwrite. Never
-fabricate.
-```
+<!-- END GENERATED: pi-fields -->
