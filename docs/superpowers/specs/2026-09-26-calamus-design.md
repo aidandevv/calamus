@@ -36,6 +36,9 @@
   `generic` backend covers other *models*; the `generic` host covers any
   caller that can shell out (section 4.5).
 - Implementing Level 3 (drift) or Level 4 (behavioral) evals.
+- Automated prompt improvement. The evals measure and report; a person
+  closes the loop. Autonomous tuning would need the Level 4 golden set first
+  and is out of scope.
 - Packaging as a Claude Code or Codex plugin. The layout is compatible with
   a later plugin wrapper; no manifest is added now.
 - Provider-specific structured-output modes (JSON-schema flags on individual
@@ -316,7 +319,11 @@ Registration templates pass both flags; nothing is auto-detected.
     `structural` or `off`. A failing verdict appends an `eval-fail` marker
     (the existing `EVAL-FAIL` note in `md`) naming the backend and model. The
     judge reads entries rendered as Markdown whatever the journal's format,
-    so verdicts stay comparable across formats.
+    so verdicts stay comparable across formats. The gate fails closed: only
+    an exact `YES` passes. A `NO` appends the marker. A judge that cannot run
+    (missing backend, timeout, or an unparseable verdict) is logged as
+    `unjudged` and is never treated as a pass. This replaces the current hook
+    scripts' default of `YES` when the judge call fails.
 11. **Exit 0 and print nothing** on every path. The whole pipeline runs in a
     subshell with `|| true`. This preserves the repository's hard constraint
     that `PreCompact` can never block compaction, and extends it to every
@@ -388,6 +395,14 @@ backend makes scores incomparable; the Level 2 report header records the
 resolved backend and model, and any pin change requires re-baselining.
 Moving capture input from a raw tail to extracted text (4.7) also changes
 what the model sees, so it is validated as described in section 7.
+
+The `claude-haiku-4-5` pin is a model alias, not a dated snapshot, and an
+alias can move to a newer snapshot. It is kept unchanged by owner decision.
+`claude-haiku-4-5-20251001` is the fixed identifier if strict
+reproducibility is needed; switching is a pin change and requires
+re-baselining, although no baseline is committed yet. The Level 2 report
+header records the configured string. Whether `gpt-5.4-mini` is an alias or
+a snapshot is not verified.
 
 **Backend profiles.** `assets/profiles/<backend>.env` holds provider-specific
 tuning as data: `CALAMUS_MIN_TEXT`, the tail caps, and the backend timeout.
@@ -637,7 +652,11 @@ is changed.
 (today it looks in the target project first), call the judge through
 `backends/` using `CALAMUS_EVAL_BACKEND`, and write the resolved backend and
 model into the report header. It loads entries through `lib/records.py`, so
-it scores journals in any format.
+it scores journals in any format. A failed or unparseable judge call exits
+non-zero with a message instead of degrading to an empty result (today's
+`|| echo "[]"`). `evals/rubric.md` is corrected: its closing line says
+scores are appended to the journal as HTML comments, but the scorer writes
+`docs/eval_report.md` and never edits the journal.
 
 ## 7. Verification
 
@@ -708,6 +727,10 @@ The repository has no toolchain today; this change adds a small one.
 13. Prompt change check: the extraction plus JSON-field pipeline ships only if
     a before/after Level 2 comparison against the current Markdown-writing
     prompt, on the same sessions, shows no regression (extends item 7).
+14. Judge failure tests: a missing, failing, or timing-out judge logs
+    `unjudged`, appends no marker, and never counts as a pass; an unparseable
+    verdict is `unjudged`; a `NO` appends the `eval-fail` marker;
+    `eval-score.sh` exits non-zero on a failed judge call.
 
 ## 8. Risks and unverified items
 
@@ -744,6 +767,14 @@ The repository has no toolchain today; this change adds a small one.
 - Append and query need `python3` and the ability to run scripts; without
   them the skill falls back to direct writes from the templates and
   whole-file reads.
+- The `claude-haiku-4-5` pin is an alias (4.4); if it moves, scores can shift
+  without any configuration change. Whether to pin the dated snapshot is
+  left as an open owner decision.
+- Level 1 and Level 2 use a judge from the same model family as the Claude
+  backend that writes the entries, and the rubric thresholds have never been
+  calibrated against human labels. The evals are measurement, not
+  ground truth, until the Level 4 golden set exists (1 of 15 examples, and
+  that one is simulated).
 
 ## 9. Git workflow
 

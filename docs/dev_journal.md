@@ -155,3 +155,19 @@
 > — see [PI-FEATURE-IDEA] | 2026-09-27: One Journal, Two Readers.
 
 ---
+
+<!-- SESSION: 2026-09-27 21:57 | calamus eval review -->
+
+### [CP-CONSTRAINT] | 2026-09-27: Eval Stack Is Measurement-Only and the Judge Gate Failed Open
+
+**Summary:** Reviewed the eval stack from its files and found it measures journal quality but has no self-improving loop: Levels 1 and 2 report, Levels 3 and 4 are planned, and a person closes the loop. Recorded the owner's decision to keep it measurement-only and fix the gaps in the Calamus spec: the model-judged gate now fails closed, the scorer errors on a failed judge call, and the rubric doc is corrected.
+
+**Files/Modules Affected:** `docs/superpowers/specs/2026-09-26-calamus-design.md` (non-goals, 4.2 step 10, 4.4 pin policy, section 6, section 7 item 14, section 8). Reviewed `journaling/evals/*` and the hook scripts; none changed yet.
+
+**Key Trade-off:** Chose fixing the gaps over adding a human-approved improvement loop, because the golden set needed for any loop is 1 of 15 with the one example simulated. Kept the `claude-haiku-4-5` pin unchanged as an alias, accepting that an alias can move, since a pin change is the owner's call and no baseline is committed.
+
+**Evidence:** Read from the files, not executed: both hook scripts default a failed judge call to `YES`; `eval-score.sh` degrades a failed call to an empty result and exits 0; `rubric.md` says scores are appended to the journal while the script writes `docs/eval_report.md`; the Level 4 plan uses the dated snapshot `claude-haiku-4-5-20251001` while the scripts use the alias.
+
+**Follow-ups:** Owner review of the spec; decide later whether to pin the dated snapshot; build the Level 4 golden set before any improvement loop is considered.
+
+---
