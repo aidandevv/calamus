@@ -91,4 +91,4 @@ Does the entry capture what remains open or what to do next?
 | 1.0 – 1.4 | Fail — entry does not meet the journal's purpose |
 
 Failing entries (average < 2.0) should be flagged for manual review.
-The eval-score.sh script appends scores as HTML comments in the journal.
+`eval-score.sh` writes scores to `docs/eval_report.md`; it never edits the journal.
