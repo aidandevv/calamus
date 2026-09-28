@@ -136,3 +136,22 @@
 **Follow-ups:** Calibrate each available backend during implementation and record it in its profile; owner review of the spec.
 
 ---
+
+<!-- SESSION: 2026-09-27 21:17 | calamus format design -->
+
+### [CP-ARCHITECTURE] | 2026-09-27: Canonical Entry Schema With Md/XML/JSONL Renderers and Query Recall
+
+**Summary:** Added to the Calamus spec a single entry schema with three serializations (`md` for humans, `xml` and `jsonl` for models), a `CALAMUS_FORMAT` flag set at init with the journal's file extension as the source of truth, code-side validation and rendering so backends return JSON fields instead of markup, and three scripts for writing, recall, and conversion. No XML template existed before; the only templates were Markdown.
+
+**Files/Modules Affected:** `docs/superpowers/specs/2026-09-26-calamus-design.md` (sections 2.2, 3, 4.2 steps 6-10, 4.4, 4.8, 4.9, 7, 8).
+
+**Key Trade-off:** Chose to have backends return JSON fields and let code render every format over asking the model to write XML directly, so append-only XML and JSONL files can never receive malformed or badly escaped records and one prompt and one eval baseline serve all formats. Accepted the risk that field-constrained output changes entry quality, gated by a before/after Level 2 comparison. Included query recall in scope because model formats do not make entries smaller; the saving is in loading only relevant entries.
+
+**Evidence:** One real entry serialized four ways: Markdown 1,821 chars, XML 1,899 (+4%), JSON line 1,823 (+0.1%), JSON line with one-letter keys 1,772 (-3%). Retrieval savings are extrapolated linearly from 7 entries at the current average entry length, not measured on a long-lived journal. Nothing implemented yet.
+
+**Follow-ups:** Draft the schema file and confirm the Markdown rendering is byte-compatible with today's entries; run Level 2 before and after the JSON-field prompt; measure recall cost on a journal with more entries.
+
+> **[CROSS-LOG]** User-facing implication logged in `./docs/product_insights.md`
+> — see [PI-FEATURE-IDEA] | 2026-09-27: One Journal, Two Readers.
+
+---

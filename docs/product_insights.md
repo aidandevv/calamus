@@ -103,3 +103,23 @@
 > — see [CP-ARCHITECTURE] | 2026-09-27: Token-Bounded Capture and Generic Host Added to Calamus Spec.
 
 ---
+
+### [PI-FEATURE-IDEA] | 2026-09-27: One Journal, Two Readers
+
+**Observation:**
+- The owner asked for a flag that writes the journals for humans (Markdown) or for models (XML or JSON), and for a template that guarantees consistent quality. The same memory serves a person writing case studies and a future agent resuming work, and those readers want different things.
+
+**Why It Matters:**
+- Measuring one entry showed structured formats are not smaller than Markdown, so "model-optimized" cannot mean cheaper per entry. The value for a model reader is selective recall and validated structure, which is what a format flag has to deliver to be worth shipping.
+
+**Evidence:**
+- **Source:** Owner request in session; serialization size comparison on one real entry.
+- **Strength:** Medium
+
+**Hypothesis / Next Step:**
+- If model mode ships with query, an agent resuming on a long-lived project should load a couple of thousand tokens instead of the whole journal. Validate by comparing tokens loaded to resume on a journal with many entries, and state plainly in the README that the saving comes from retrieval.
+
+> **[CROSS-LOG]** Engineering design logged in `./docs/dev_journal.md`
+> — see [CP-ARCHITECTURE] | 2026-09-27: Canonical Entry Schema With Md/XML/JSONL Renderers and Query Recall.
+
+---
