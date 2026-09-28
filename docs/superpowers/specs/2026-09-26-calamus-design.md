@@ -2,7 +2,9 @@
 
 > Status: draft for review. Date: 2026-09-26; amended 2026-09-27 (incremental
 > capture window, transcript extractor, generic host, backend profiles and
-> gating, entry schema and journal formats). Branch: `refactor/calamus`.
+> gating, entry schema and journal formats; plan-review fixes to the
+> session-end floor, dedupe key, gate scope, locking, and duplicate
+> detection). Branch: `refactor/calamus`.
 > Scope: rebrand this repository from a multi-skill garden into one
 > centralized skill named **Calamus**, and rework the hook layer so it is
 > host-neutral and model-agnostic across Claude Code, Codex CLI, and Cursor.
@@ -22,8 +24,9 @@
    model outside one config file.
 5. Existing behavior is preserved where it was correct: append-only
    journals, hooks that never block the host, pinned judge models.
-6. Capture is token-bounded: each hook call sends only new, distilled
-   session text to the backend, never a repeated or tool-output-heavy tail.
+6. Capture is token-bounded: each sweep sends only new, distilled session
+   text to the backend, never a repeated or tool-output-heavy tail; a
+   pre-compaction snapshot sends one bounded, distilled window.
 7. Any runtime that can shell out and supply a transcript file can call the
    engine through a `generic` host, without a native shim.
 8. Journals are written in one of three formats from a single schema: `md`
@@ -262,7 +265,7 @@ Registration templates pass both flags; nothing is auto-detected.
 
    | Field | claude-code | codex | cursor | generic |
    |---|---|---|---|---|
-   | session id | `session_id` | `session_id` | `conversation_id`, else `session_id` | `session_id`, else `CALAMUS_SESSION_ID` |
+   | session id | `session_id`, else `conversation_id` | `session_id` | `conversation_id`, else `session_id` | `session_id`, else `CALAMUS_SESSION_ID` |
    | cwd | `cwd` | `cwd` | first of `workspace_roots`, else `CURSOR_PROJECT_DIR` | `cwd`, else `CALAMUS_CWD` |
    | transcript | `transcript_path` | `transcript_path` (may be null) | `transcript_path`, else `CURSOR_TRANSCRIPT_PATH` | `transcript_path`, else `CALAMUS_TRANSCRIPT` |
 
@@ -272,16 +275,23 @@ Registration templates pass both flags; nothing is auto-detected.
    never committed; `calamus-init` prints a reminder to ignore it.
 4. **Gate.** Skip with a log line when: no transcript file; transcript below
    `CALAMUS_MIN_BYTES_*`; or the same `(host, session, event)` already ran
-   within `CALAMUS_DEDUPE_SECS`.
+   within `CALAMUS_DEDUPE_SECS`. The dedupe key is `(session, event)`,
+   not the host, so a Cursor session that runs both its native hook and an
+   imported Claude Code hook is captured once. A second capture for the same
+   session while one is running (a held `state/lock-<session>` directory)
+   skips with a log line and leaves the offset unchanged.
 5. **Read the window.** Take the transcript's current end offset (`eof`).
    For `turn-stop` and `session-end`, start at the per-session sweep offset
    in `.calamus/state/`; for `pre-compact`, start at zero. In both cases
    read at most the last `CALAMUS_RAW_WINDOW` raw bytes, pass them through
    the host extractor (4.7), and keep the last `CALAMUS_TAIL_*` characters
-   of the extracted text. `turn-stop` and `session-end` skip with a log line
-   when the extracted text is shorter than `CALAMUS_MIN_TEXT`, leaving the
-   offset unchanged so text accumulates until it is worth a call.
-   `pre-compact` has no text minimum beyond non-empty.
+   of the extracted text. `turn-stop` skips with a log line when the
+   extracted text is shorter than `CALAMUS_MIN_TEXT`, leaving the offset
+   unchanged so text accumulates until it is worth a call. `session-end` in
+   `stub` mode uses the same threshold to decide whether to write a stub.
+   `session-end` in `sweep` mode and `pre-compact` have no text minimum
+   beyond non-empty: there is no later event for the text to accumulate
+   into, and today's hooks capture any transcript above the byte minimum.
 6. **Prompt.** `prompts/<snapshot|sweep>.txt` plus the extracted text. The
    prompt asks for one JSON object, `{"entries": [...]}`, whose fields come
    from the schema (4.8); a schema-derived shape block is substituted into
@@ -310,8 +320,11 @@ Registration templates pass both flags; nothing is auto-detected.
    `jsonl`) and record the transcript path in
    `<root>/.calamus/state/pending/<id>`. The journal never contains a local
    path. Invalid model output takes the same path.
-10. **Level 1 gate** on what was written (skipped for pending stubs and
-    markers). Structural validity is enforced earlier, at step 7, on every
+10. **Level 1 gate** on sweep entries written by `turn-stop` and
+    `session-end` (skipped for snapshots, pending stubs, and markers;
+    today's `pre-compact` hook has no gate, its 4-of-8 questions do not fit
+    a snapshot, and a second call would exceed the 45 s `pre-compact`
+    budget). Structural validity is enforced earlier, at step 7, on every
     capture at no model cost. The model-judged check uses
     `prompts/eval-gate.txt` through the same backend: on every capture when
     `CALAMUS_LEVEL1_GATE=full`, on 1 in `CALAMUS_LEVEL1_SAMPLE` captures when
@@ -384,7 +397,7 @@ so a cloned repository cannot cause command execution at hook time.
 | `CALAMUS_RAW_WINDOW` | `262144` | max raw transcript bytes read per call |
 | `CALAMUS_EXTRACT` | `on` | `off` sends the raw tail, as today |
 | `CALAMUS_MIN_BYTES_SWEEP` / `CALAMUS_MIN_BYTES_SNAPSHOT` | `800` / `500` | minimum total transcript size, as today |
-| `CALAMUS_MIN_TEXT` | `8000` | minimum new extracted characters for `turn-stop` and `session-end`; replaces the raw-byte growth gate. About 2K tokens, so content is at least a third of a call given the measured ~3.7K fixed overhead (2.1). Provisional until a backend is measured. |
+| `CALAMUS_MIN_TEXT` | `8000` | minimum new extracted characters for `turn-stop` and for a `session-end` stub; replaces the raw-byte growth gate. About 2K tokens, so content is at least a third of a call given the measured ~3.7K fixed overhead (2.1). Provisional until a backend is measured. |
 | `CALAMUS_DEDUPE_SECS` | `30` | |
 | `CALAMUS_SESSION_END_MODE` | `auto` | `auto` = `sweep` on claude-code, `stub` on codex/cursor |
 | `CALAMUS_FORMAT` | `md` | `md`, `xml`, or `jsonl`; `human` is an alias for `md` and `model` for `xml`. Read by `calamus-init` and when a journal does not exist yet; an existing journal's file extension wins (4.8). |
@@ -534,8 +547,16 @@ is 1; each entry carries `schema="1"`.
 | `entry`, product | `lightweight`, `full` | Tags are the `PI-*` list; evidence strength `strong`, `medium`, `weak`; risk class from the six-item lens |
 | `marker` | `session`, `compact`, `resume`, `pending`, `resolved`, `eval-fail` | Everything the hooks and skill write outside entries, so every write is a valid record |
 
-Every entry has `id` (`YYYYMMDD-HHMM-<4 hex>`, derived from its content so a
-repeated write is detected), `tag`, `date`, and `title`. A cross-log link is
+Every entry has `id` (`YYYYMMDD-HHMM-<4 hex>`: write time plus the first
+four hex digits of the SHA-256 of the entry's canonical content), `tag`,
+`date`, and `title`. A repeated write is detected by comparing the full
+canonical-content hash against existing entries, not by `id`, so a repeat
+in a later minute is still caught.
+
+In `md`, markers keep today's forms so old and new journals read the same:
+`<!-- SESSION: <date time> | id:<session> (hook:<event>) -->`,
+`<!-- COMPACT: <date time> | id:<session> -->`, and
+`<!-- POST-COMPACT RESUME: <date time> | id:<session> | snapshot:<id> -->`. A cross-log link is
 a `crosslog` record with `journal`, `tag`, `date`, and `title`, which
 renders as today's `[CROSS-LOG]` blockquote in `md`.
 
@@ -639,7 +660,7 @@ guarantees XML and JSONL journals never receive a malformed record.
 | `journaling/hooks/*.sh` | replaced by `scripts/hook.sh`, `lib/`, `prompts/`; removed only after tests pass |
 | `journaling/adapters/*.md` | `assets/adapter.md`, `assets/hosts/*/hooks.json` |
 | `journaling/scripts/journal-init` | `skills/calamus/scripts/calamus-init` |
-| `journaling/evals/*` | `skills/calamus/evals/*` |
+| `journaling/evals/*` | `skills/calamus/evals/*` (`level-4-plan.md` points to `assets/calamus.env` instead of naming a model, per goal 4) |
 | `journaling/docs/*` | `skills/calamus/assets/examples/` |
 | `journaling/README.md` | `docs/design-rationale.md` |
 
@@ -669,7 +690,9 @@ The repository has no toolchain today; this change adds a small one.
    transcripts skip; empty stdin and malformed JSON exit 0; a failing or
    hanging backend produces a pending stub with no absolute path and exit 0;
    `CALAMUS_ACTIVE=1` is a no-op; two identical events inside the dedupe
-   window append once; the growth gate skips small `turn-stop` growth;
+   window append once, including the same session under two hosts; a held
+   session lock skips; a short `session-end` sweep on claude-code still
+   captures; the growth gate skips small `turn-stop` growth;
    project-level config cannot set `CALAMUS_LLM_CMD`; Level 1 failure appends
    `EVAL-FAIL`; nothing is ever written to stdout.
 2. Skill validation: `skills-ref validate skills/calamus` if it can be
