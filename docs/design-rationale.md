@@ -1,233 +1,42 @@
-# journaling/
+# Calamus — Design Rationale
 
-A self-contained dual-journal system for capturing engineering decisions and
-product insights during agentic coding sessions.
+> Why Calamus is built the way it is. Agents never load this file; the
+> skill itself is `skills/calamus/`. The full design spec is
+> `docs/superpowers/specs/2026-09-26-calamus-design.md`.
 
-> **Abstract:** `journaling/` is a live project-memory layer for agents. It
-> gives Claude Code, Codex, and other skill-compatible tools a structured place
-> to record design and engineering decisions, product insights, pivots,
-> trade-offs, and verification evidence as work happens. The goal is
-> zero-effort recall: when it is time to write a case study, mock up a product
-> story, prepare a pitch, explain a technical decision, or review what changed
-> across a long build session, the reasoning is already captured.
+Calamus keeps two append-only journals — engineering decisions and product
+insights — as live project memory for agent sessions. It has three layers:
 
-Drop this folder into any project or reference it from `~/.claude/skills/` or
-`~/.codex/skills/`.
-
----
-
-## What's Here
-
-```
-journaling/
-├── README.md                               ← you are here (design rationale)
-├── skills/
-│   ├── engineering-journal/SKILL.md        ← engineering decisions protocol
-│   └── product-insight-journal/SKILL.md    ← product insight protocol
-├── hooks/
-│   ├── session-end.sh                      ← Claude Code: fires at session end
-│   ├── pre-compact.sh                      ← Claude Code: fires before compaction
-│   ├── post-compact.sh                     ← Claude Code: fires after compaction
-│   └── codex-stop.sh                       ← Codex: Stop + TaskCompleted events
-├── adapters/
-│   ├── claude-code.md                      ← CLAUDE.md block + hook registration
-│   └── codex.md                            ← AGENTS.md block + hooks.json config
-├── evals/
-│   ├── rubric.md                           ← 5-dimension analytic scoring rubric
-│   ├── eval-score.sh                       ← Level 2: on-demand rubric scorer
-│   ├── level-4-plan.md                     ← Level 4 behavioral eval spec (planned)
-│   └── golden/
-│       └── golden-index.md                 ← Hand-labeled example dataset (stub)
-└── scripts/
-    └── journal-init                        ← initializes both journal files
-```
-
----
-
-## The Two Journals
-
-The journaling skill keeps engineering memory and product memory separate so
-each file stays useful to its audience. Engineering entries explain how the
-system changed. Product entries explain what a user, market, or roadmap signal
-means.
-
-### [`engineering-journal`](./skills/engineering-journal/SKILL.md)
-
-> A running engineering decision log. It captures what changed technically,
-> why the decision was made, what trade-offs were accepted, what evidence
-> verified the work, and what should be revisited later.
-
-| Writes To | Primary Question | Typical Signals |
+| Layer | Where | Loaded |
 |---|---|---|
-| `docs/dev_journal.md` | What changed technically, and why? | Architecture decisions, pivots, refactors, debugging, test strategy, constraints, integrations |
-
-### [`product-insight-journal`](./skills/product-insight-journal/SKILL.md)
-
-> A running product-learning log. It captures user pain, UX friction,
-> positioning insights, roadmap trade-offs, trust risks, and feature
-> hypotheses that may be useful later in product reviews, pitches, case
-> studies, or roadmap decisions.
-
-| Writes To | Primary Question | Typical Signals |
-|---|---|---|
-| `docs/product_insights.md` | What did we learn about users, product value, or product risk? | UX friction, user pain, activation, retention, positioning, trust, roadmap, growth, feature hypotheses |
-
-The hook layer currently automates engineering checkpoint capture at session
-boundaries. Product insights are written by the product insight skill when the
-session contains product, UX, growth, onboarding, retention, roadmap, or
-user-facing work worth preserving.
-
-**Engineering example:**
-
-```markdown
-### [CP-DEBUG] | 2026-06-20: Duplicate Hook Entry Suppressed
-
-**Summary:** A Codex `Stop` event and `TaskCompleted` event were both writing
-entries for the same task. The hook now tracks transcript size per session so
-only new work is logged.
-
-**Evidence:** Replayed the event path and confirmed one journal entry.
-```
-
-**Product example:**
-
-```markdown
-### [PI-UX-FRICTION] | 2026-06-20: Setup Instructions Hide the Actual Payoff
-
-**Observation:** The README explains installation before showing what the
-journaling skill produces.
-
-**Why It Matters:** Readers evaluating the skill need to see the output shape
-before they decide whether the setup is worth it.
-
-**Hypothesis / Next Step:** If the README shows a compact example before the
-install path, more readers will understand the value without opening the skill
-files.
-```
-
-Some moments belong in both journals. If an engineering constraint changes the
-user experience, write one entry in each file and connect them with a
-`[CROSS-LOG]` marker.
-
-```mermaid
-flowchart LR
-  Constraint["Engineering constraint"] --> Dev["dev_journal.md<br/>root cause and trade-off"]
-  Constraint --> Product["product_insights.md<br/>user impact and product risk"]
-  Dev <-->|"[CROSS-LOG]"| Product
-```
-
----
-
-## Three-Layer Design
-
-```
-Layer 1: Skill files   ← WHAT to log and HOW to format it (model reads this)
-Layer 2: Adapters      ← WHERE to find the skills (CLAUDE.md / AGENTS.md)
-Layer 3: Hooks         ← WHEN to write, deterministically (shell, not model)
-```
-
-```mermaid
-flowchart TB
-  subgraph "Layer 1: Skills"
-    Eng["engineering-journal/SKILL.md"]
-    Product["product-insight-journal/SKILL.md"]
-  end
-
-  subgraph "Layer 2: Adapters"
-    ClaudeAdapter["adapters/claude-code.md"]
-    CodexAdapter["adapters/codex.md"]
-  end
-
-  subgraph "Layer 3: Hooks"
-    SessionEnd["session-end.sh"]
-    PreCompact["pre-compact.sh"]
-    PostCompact["post-compact.sh"]
-    CodexStop["codex-stop.sh"]
-  end
-
-  ClaudeAdapter --> Eng
-  ClaudeAdapter --> Product
-  CodexAdapter --> Eng
-  CodexAdapter --> Product
-  Eng --> DevJournal["docs/dev_journal.md"]
-  Product --> ProductJournal["docs/product_insights.md"]
-  SessionEnd --> DevJournal
-  PreCompact --> DevJournal
-  PostCompact --> DevJournal
-  CodexStop --> DevJournal
-```
-
-The model layer is probabilistic — in-context attention degrades over long
-sessions and near context limits. The hook layer is deterministic — it fires
-on every qualifying lifecycle event regardless of model attention. Together
-they produce reliable coverage without requiring constant manual logging or
-prompt-level journaling instructions that burn context budget.
-
----
-
-## Session Mapping by Tool
-
-**Claude Code** (long single sessions):
-
-| Event | Hook | Action |
-|---|---|---|
-| `PreCompact` | `pre-compact.sh` | Snapshot current progress before context is lost |
-| `PostCompact` | `post-compact.sh` | Write resume marker for next context window |
-| `SessionEnd` | `session-end.sh` | Full sweep of the session; runs Level 1 eval gate |
-
-No mid-session prompting. No instruction to the model to journal during work.
-The `PreCompact` hook closes the compaction gap — you can run `/compact` freely
-without losing anything, because the hook fires before the context is erased.
-
-**Codex CLI** (two modes — focused sessions and chained dispatches):
-
-The `codex-stop.sh` hook handles both modes automatically based on the event
-type it receives:
-
-- `Stop` event + small transcript growth (< 2K chars) → write immediately
-  (focused single-task session, treat as self-contained)
-- `TaskCompleted` event → write one entry per completed task
-  (chained dispatch mode, natural task boundaries)
-- `Stop` event + large transcript growth → write full sweep on session exit
-
-This means you don't need to configure anything differently between your two
-usage patterns. The hook detects which mode it's in from the event type and
-transcript growth.
-
-```mermaid
-sequenceDiagram
-  participant User
-  participant Agent
-  participant Hook
-  participant Journal
-  participant Eval
-
-  User->>Agent: Work session
-  Agent->>Hook: Stop / TaskCompleted / SessionEnd
-  Hook->>Hook: Read transcript excerpt
-  Hook->>Journal: Append checkpoint entry
-  Hook->>Eval: Run Level 1 quality gate
-  Eval-->>Journal: Append warning only if quality fails
-```
+| Skill | `SKILL.md` (router) + `references/` | Router on activation; one reference per journal written |
+| Engine | `scripts/hook.sh`, `scripts/lib/`, `scripts/backends/`, `assets/hosts/` | Never in the working agent's context; runs as lifecycle hooks |
+| Adapter | `assets/adapter.md` | Every session, so it stays under 15 lines |
 
 ---
 
 ## Eval Stack
 
-| Level | What it measures | Cost | Runs |
-|---|---|---|---|
-| 1 — Passive gate | Output quality of each session's entries | ~200 tokens | Automatic, every session |
-| 2 — Rubric scorer | 5-dimension analytic score on last N entries | ~500–800 tokens | Manual: `./evals/eval-score.sh` |
-| 3 — Drift detection | Weekly trend across session scores | ~2K tokens/week | Planned |
-| 4 — Behavioral evals | Skill checkpoint detection and classification accuracy | ~5–10K/run | Planned — see `evals/level-4-plan.md` |
+| Level | What it measures | Runs |
+|---|---|---|
+| 1 — Capture gate | Structural validity of every capture (free), plus a model-judged 4-of-8 check | Automatic on sweep captures; model judge sampled 1 in `CALAMUS_LEVEL1_SAMPLE` by default |
+| 2 — Rubric scorer | 5-dimension analytic score on the last N entries | Manual: `skills/calamus/evals/eval-score.sh` |
+| 3 — Drift detection | Trend across session scores | Not implemented |
+| 4 — Behavioral evals | Checkpoint detection and classification against a golden set | Planned — `skills/calamus/evals/level-4-plan.md` |
 
-Level 1 is embedded in the `SessionEnd` and `codex-stop.sh` hooks. It re-reads
-each journal write immediately after appending and flags entries that don't
-satisfy the quality bar with a `⚠ EVAL-FAIL` inline comment.
+Level 1's structural check is the schema validator: a capture that does not
+validate is never written. The model-judged check fails closed — only an
+exact `YES` passes; a judge that cannot run is logged as `unjudged`, never
+as a pass. A `NO` appends an `EVAL-FAIL` marker naming the backend and model.
 
-Level 2 uses an analytic rubric (five dimensions, 1–3 scale, pass threshold
-2.0) evaluated by `claude-haiku-4-5`. Run it manually after a work block or
-before extracting content for a write-up.
+Level 2 judges entries in their Markdown rendering whatever the journal
+format, so scores stay comparable across `md`, `xml`, and `jsonl`. The
+report header records the backend and model; scores are comparable only
+across runs with the same pair.
+
+These evals are measurement, not ground truth: the judge shares a model
+family with the capture backend, and the rubric has not been calibrated
+against human labels. The Level 4 golden set is what would change that.
 
 ---
 
@@ -237,8 +46,8 @@ before extracting content for a write-up.
 
 SKILL.md files load on every activation under the Agent Skills progressive
 disclosure model. Research bibliography content burns context budget and the
-agent doesn't need it to do the job. Citations live here (skill README) and
-in the repo-level README. The SKILL.md contains only procedural instructions.
+agent doesn't need it to do the job. Citations live here and in the
+repo-level README. The SKILL.md contains only procedural instructions.
 
 Research basis: *Knowledge Activation: AI Skills as the Institutional
 Knowledge Primitive* (2026) documents the three constraints defining the
@@ -308,59 +117,63 @@ Research basis: *Claude Code Compaction and Long-Session Operations Guide*
 state-preservation before compaction, with the matcher distinguishing manual
 (`/compact`) from automatic (context pressure) triggers.
 
-### Why TaskCompleted for Codex dispatch chains?
+### Why growth-gated `Stop` for Codex and Cursor?
 
-In Codex's chained dispatch model, one "session" from the shell's perspective
-may span five separate logical tasks. Waiting for session end means all five
-tasks collapse into one journal entry, losing per-task granularity. The
-`TaskCompleted` event fires at natural task boundaries — exactly where you
-want checkpoints in a dispatch workflow — without any prompt-level overhead.
+Codex has no `TaskCompleted` event (its hooks documentation lists
+`SessionStart`, `SessionEnd`, `PreToolUse`, `PostToolUse`,
+`PermissionRequest`, `PreCompact`, `PostCompact`, `UserPromptSubmit`,
+`SubagentStart`, `SubagentStop`, `Stop`, and `Interrupt`), so the old
+per-task mode was dead code. Codex and Cursor also give `SessionEnd` a
+budget of a few seconds — too short for a model call. So they capture at
+turn boundaries instead: `Stop` runs a sweep only once at least
+`CALAMUS_MIN_TEXT` characters of new, extracted text have accumulated since
+the last sweep, which amortizes the fixed per-call overhead. Their
+`SessionEnd` only leaves a pending marker for the skill to resolve.
 
-Research basis: Claude Code vs Codex CLI 2026 Decision Reference documents
-`TaskCompleted` as one of the 27 Claude Code lifecycle events, confirmed as
-also available in Codex's hooks schema.
+### Why one engine with host flags instead of per-host scripts?
+
+The previous hooks duplicated payload parsing, journal creation, and the
+Level 1 gate across four scripts, and hardcoded model names in each.
+`hook.sh --host <h> --event <e>` normalizes each host's payload into the
+same fields and runs one pipeline. Hosts differ only in registration
+templates and payload field names.
+
+### Why is the model configuration, not code?
+
+Every model string lives in `assets/calamus.env`. A backend never falls
+back to another backend or model: an unavailable backend means a pending
+marker for capture and a clear error for scoring. Silent substitution
+would make eval scores incomparable without anyone noticing.
+
+### Why a schema, and why do backends return JSON?
+
+One schema drives validation, three renderers (`md`, `xml`, `jsonl`), the
+parser, the prompt's field list, and the templates in the references, so
+none of them can drift. Backends return JSON fields and code renders them,
+which removes escaping errors and lets one prompt and one eval baseline
+serve every format. Model-optimized formats do not make entries smaller;
+they save tokens through recall by query instead of whole-file reads.
+
+### Why extract transcripts before sending them?
+
+The old hooks resent a raw 28 KB transcript tail on every qualifying event,
+full of tool output and reasoning blocks. The extractor keeps user and
+assistant text, one-line tool summaries, and the start of each tool result,
+and sends only text added since the last sweep. If extraction fails or
+returns nothing, the raw tail is sent instead, so extraction can never stop
+a capture.
 
 ---
 
-## Installation Quickstart
+## Extending Calamus
 
-```bash
-# 1. Initialize journal files
-./scripts/journal-init
+To support another host:
 
-# 2. Install Claude Code hooks
-mkdir -p ~/.claude/hooks/journaling
-cp hooks/session-end.sh ~/.claude/hooks/journaling/
-cp hooks/pre-compact.sh ~/.claude/hooks/journaling/
-cp hooks/post-compact.sh ~/.claude/hooks/journaling/
-chmod +x ~/.claude/hooks/journaling/*.sh
+1. Add its payload field names to `scripts/lib/payload.sh`.
+2. Add a registration template in `assets/hosts/<host>/hooks.json`.
+3. Until then, any runtime that can shell out can use `--host generic`,
+   passing `session_id`, `cwd`, and `transcript_path` as JSON on stdin or
+   as `CALAMUS_SESSION_ID`, `CALAMUS_CWD`, and `CALAMUS_TRANSCRIPT`.
 
-# 3. Register in Claude Code settings
-# Add to ~/.claude/settings.json — see adapters/claude-code.md
-
-# 4. Install Codex hooks
-mkdir -p ~/.codex/hooks/journaling
-cp hooks/codex-stop.sh ~/.codex/hooks/journaling/
-chmod +x ~/.codex/hooks/journaling/codex-stop.sh
-
-# 5. Copy hooks.json — see adapters/codex.md
-
-# 6. Copy AGENTS.md / CLAUDE.md adapter block
-# See adapters/claude-code.md and adapters/codex.md
-
-# 7. Install skill files
-mkdir -p ~/.claude/skills/journaling
-cp -r skills/engineering-journal ~/.claude/skills/journaling/
-cp -r skills/product-insight-journal ~/.claude/skills/journaling/
-```
-
----
-
-## Extending This Skill
-
-To add this to a new tool (Cursor, Gemini CLI, etc.):
-
-1. Copy `skills/` to the tool's skill directory
-2. Write a new adapter in `adapters/` for that tool's config format
-3. Write a hook script in `hooks/` for that tool's lifecycle events
-4. The SKILL.md files need no changes — they're already tool-agnostic
+To support another model, point the `generic` backend at it with
+`CALAMUS_LLM_CMD` (environment or user-level config only).
