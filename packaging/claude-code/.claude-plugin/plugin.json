@@ -1,0 +1,13 @@
+{
+  "name": "calamus",
+  "description": "Append-only engineering and product journals as live project memory, with compaction and session-end capture hooks.",
+  "author": {
+    "name": "Calamus contributors"
+  },
+  "keywords": [
+    "journal",
+    "memory",
+    "decisions",
+    "hooks"
+  ]
+}

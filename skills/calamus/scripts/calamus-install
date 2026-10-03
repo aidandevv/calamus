@@ -44,6 +44,17 @@ else
   echo "Linked $dest -> $src"
 fi
 
+repo="$(cd "$src/../.." && pwd -P)"
+if [ "$host" = claude-code ] && [ -f "$repo/.claude-plugin/marketplace.json" ]; then
+  q="'$(printf '%s' "$repo" | sed "s/'/'\\\\''/g")'"
+  echo
+  echo "── Recommended: install the Claude Code plugin instead ──"
+  echo "  claude plugin marketplace add $q"
+  echo "  claude plugin install calamus@calamus"
+  echo "The plugin registers its own hooks. If you use it, remove $dest"
+  echo "and do not also merge the hooks below: each event would run twice."
+fi
+
 echo
 echo "── Hooks: merge into $settings ──"
 python3 - "$src/assets/hosts/$host/hooks.json" "$dest" <<'PY'
