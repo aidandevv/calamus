@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "hooks": {
+    "preCompact": [
+      {
+        "command": "\"${CURSOR_PLUGIN_ROOT}\"/skills/calamus/scripts/hook.sh --host cursor --event pre-compact",
+        "timeout": 45
+      }
+    ],
+    "stop": [
+      {
+        "command": "\"${CURSOR_PLUGIN_ROOT}\"/skills/calamus/scripts/hook.sh --host cursor --event turn-stop",
+        "timeout": 90
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "\"${CURSOR_PLUGIN_ROOT}\"/skills/calamus/scripts/hook.sh --host cursor --event session-end",
+        "timeout": 5
+      }
+    ]
+  }
+}

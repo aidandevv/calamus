@@ -30,3 +30,6 @@ and Cursor rows are documentation-verified.
 | Local marketplace at `.agents/plugins/marketplace.json` with `"source": {"source": "local", "path": ...}` | Codex | https://developers.openai.com/codex/plugins/build | 2026-10-03 | verified |
 | Plugin layout: `.cursor-plugin/plugin.json`, `skills/`, `hooks/hooks.json`; hook commands may use `${CURSOR_PLUGIN_ROOT}` or `${CLAUDE_PLUGIN_ROOT}`; local plugins load from `~/.cursor/plugins/local` | Cursor | https://cursor.com/docs/reference/plugins | 2026-10-03 | verified |
 | Whether a Cursor plugin `hooks/hooks.json` needs `"version": 1` and accepts `timeout` | Cursor | (plugin reference shows neither) | 2026-10-03 | unverified |
+| Hook commands run through a shell, so `"${PLUGIN_ROOT}"` in a plugin hook command expands (docs show `~` in a command, which implies a shell) | Codex | (not stated) | 2026-10-03 | unverified |
+| A plugin's symlinked `skills/calamus` directory is followed when the plugin is installed or loaded | Codex | (not documented) | 2026-10-03 | unverified |
+| A plugin's symlinked `skills/calamus` directory is followed when the plugin is loaded from `~/.cursor/plugins/local` | Cursor | (not documented) | 2026-10-03 | unverified |

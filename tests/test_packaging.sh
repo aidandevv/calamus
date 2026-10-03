@@ -32,4 +32,22 @@ assert_eq "" "$(check_hooks claude-code "$CC/hooks/hooks.json" '"${CLAUDE_PLUGIN
 check_no_fork "$CC" .claude-plugin/plugin.json hooks/hooks.json
 assert_eq "./packaging/claude-code" "$(python3 -c "import json; print([p['source'] for p in json.load(open('$REPO_ROOT/.claude-plugin/marketplace.json'))['plugins'] if p['name']=='calamus'][0])" 2>/dev/null)" "marketplace lists the claude-code plugin"
 
+for spec in "codex .codex-plugin PLUGIN_ROOT" "cursor .cursor-plugin CURSOR_PLUGIN_ROOT"; do
+  set -- $spec
+  D="$P/$1"
+  assert_eq "calamus" "$(python3 -c "import json; print(json.load(open('$D/$2/plugin.json'))['name'])" 2>/dev/null)" "$1 plugin name"
+  assert_eq "" "$(check_hooks "$1" "$D/hooks/hooks.json" "\"\${$3}\"" 2>&1)" "$1 plugin hooks equal template"
+  check_no_fork "$D" "$2/plugin.json" hooks/hooks.json
+done
+
+# Installer points Codex and Cursor users at their package and its trust step.
+H="$(mk_repo)/home"; mkdir -p "$H"
+out="$(HOME="$H" "$SKILL_DIR/scripts/calamus-install" --host codex 2>&1)"
+assert_contains "$out" "$P/codex" "codex install names its package"
+assert_contains "$out" "still need review and trust in /hooks" "codex package is not zero-touch"
+H="$(mk_repo)/home"; mkdir -p "$H"
+out="$(HOME="$H" "$SKILL_DIR/scripts/calamus-install" --host cursor --copy 2>&1)"
+assert_contains "$out" "ln -s '$P/cursor' ~/.cursor/plugins/local/calamus" "cursor install links its package"
+assert_contains "$out" "trusted workspace" "cursor workspace trust called out"
+
 finish

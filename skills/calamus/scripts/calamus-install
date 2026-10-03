@@ -68,13 +68,27 @@ else
 fi
 
 repo="$(cd "$src/../.." && pwd -P)"
-if [ "$host" = claude-code ] && [ -f "$repo/.claude-plugin/marketplace.json" ]; then
-  q="'$(printf '%s' "$repo" | sed "s/'/'\\\\''/g")'"
+pkg="$repo/packaging/$host"
+squote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
+if [ -d "$pkg" ]; then
   echo
-  echo "── Recommended: install the Claude Code plugin instead ──"
-  echo "  claude plugin marketplace add $q"
-  echo "  claude plugin install calamus@calamus"
-  echo "The plugin registers its own hooks. If you use it, remove $dest"
+  case "$host" in
+    claude-code)
+      echo "── Recommended: install the Claude Code plugin instead ──"
+      echo "  claude plugin marketplace add $(squote "$repo")"
+      echo "  claude plugin install calamus@calamus"
+      echo "The plugin registers its own hooks." ;;
+    codex)
+      echo "── Alternative: the Codex plugin package ──"
+      echo "  $pkg"
+      echo "Add it to a Codex plugin marketplace (see the README). Its bundled hooks"
+      echo "still need review and trust in /hooks before they run." ;;
+    cursor)
+      echo "── Alternative: the Cursor plugin ──"
+      echo "  mkdir -p ~/.cursor/plugins/local && ln -s $(squote "$pkg") ~/.cursor/plugins/local/calamus"
+      echo "Then restart Cursor. Plugin hooks run only in a trusted workspace." ;;
+  esac
+  echo "If you use the plugin, remove $dest"
   echo "and do not also merge the hooks below: each event would run twice."
 fi
 
