@@ -31,6 +31,29 @@ case "$host" in
   *) usage ;;
 esac
 
+# Warn about existing registrations first: Cursor also runs hooks from the
+# Claude settings files, and the plugin registers its own hooks.
+found=""
+for f in "~/.claude/settings.json" .claude/settings.json .claude/settings.local.json \
+  "~/.cursor/hooks.json" .cursor/hooks.json "~/.codex/hooks.json" .codex/hooks.json; do
+  p="$f"; case "$f" in "~/"*) p="$HOME/${f#\~/}" ;; esac
+  if [ -f "$p" ] && grep -qE 'hook\.sh --host [a-z-]+ --event' "$p" 2>/dev/null; then
+    found="$found  - $f
+"
+  fi
+done
+if [ -f "$HOME/.claude/plugins/installed_plugins.json" ] &&
+  grep -q '"calamus@calamus"' "$HOME/.claude/plugins/installed_plugins.json" 2>/dev/null; then
+  found="$found  - the calamus Claude Code plugin is installed
+"
+fi
+if [ -n "$found" ]; then
+  echo "Warning: Calamus hooks are already registered in:"
+  printf '%s' "$found"
+  echo "Register each event once; a duplicate runs twice except within the dedupe window."
+  echo
+fi
+
 if [ -e "$dest" ] || [ -L "$dest" ]; then
   echo "refusing to overwrite existing $dest; remove it first to reinstall" >&2
   exit 1

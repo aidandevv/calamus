@@ -154,6 +154,15 @@ new_env
 run_hook claude-code pre-compact CALAMUS_DEDUPE_SECS=30
 run_hook cursor pre-compact CALAMUS_DEDUPE_SECS=30
 assert_eq 1 "$(J | grep -c '<!-- COMPACT: ')" "same session under two hosts captured once"
+# Cursor runs its own sessionEnd and the one it imports from Claude settings,
+# both with Cursor's payload: one capture whichever runs first.
+for order in "cursor claude-code" "claude-code cursor"; do
+  new_env
+  PAYLOAD="$(printf '{"conversation_id":"c9","cwd":"%s","workspace_roots":["%s"],"transcript_path":"%s"}' "$R" "$R" "$T")"
+  for h in $order; do run_hook "$h" session-end CALAMUS_DEDUPE_SECS=30; check_quiet "double registration $h"; done
+  unset PAYLOAD
+  assert_eq 1 "$(J | grep -cE 'CALAMUS-PENDING: |\(hook:session-end\) -->')" "cursor + imported claude hook captured once ($order)"
+done
 new_env; mkdir -p "$R/.calamus/state/lock-s1"
 run_hook claude-code session-end; check_quiet "held lock"
 assert_eq 0 "$(calls)" "held lock skips"
