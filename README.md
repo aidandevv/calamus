@@ -26,7 +26,9 @@ skills/calamus/                the distributable skill
   scripts/lib/                 schema, renderers, parser, extractor, config, gates
   scripts/backends/            claude | codex | cursor | generic
   assets/                      calamus.env (all model pins), profiles/, schema/, hosts/, adapter.md
-  evals/                       rubric, Level 2 scorer, Level 4 plan
+  evals/                       rubric, Level 2 scorer, Level 4 plan, activation experiment
+packaging/                     per-host plugin wrappers: manifests + hooks, skill linked from skills/
+.claude-plugin/                marketplace for the Claude Code plugin
 docs/                          design rationale, spec, and this repo's own journals
 tests/run.sh                   offline test suite
 ```
@@ -34,6 +36,26 @@ tests/run.sh                   offline test suite
 ---
 
 ## Install
+
+Claude Code — install the plugin from a clone of this repository. It
+bundles the skill and registers the hooks, so there is no JSON to merge:
+
+```bash
+claude plugin marketplace add /path/to/this/repo
+claude plugin install calamus@calamus
+```
+
+Codex and Cursor have plugin packages too, in `packaging/codex` and
+`packaging/cursor`. Their layouts follow each host's plugin docs but are not
+yet tested live (see [docs/host-facts.md](docs/host-facts.md)):
+
+- **Codex:** add `packaging/codex` to a Codex plugin marketplace. Its hooks
+  still run only after you review and trust them in `/hooks`.
+- **Cursor:** `ln -s "$PWD/packaging/cursor" ~/.cursor/plugins/local/calamus`,
+  then restart Cursor. Plugin hooks run only in a trusted workspace.
+
+**Advanced fallback — raw install.** For any host, or to manage hooks
+yourself:
 
 ```bash
 skills/calamus/scripts/calamus-install --host claude-code   # or codex, cursor
@@ -44,11 +66,14 @@ The installer symlinks the skill into the host's skills directory
 Codex and Cursor; `--copy` copies instead). It then prints the hooks config
 to merge and the adapter text to paste into `CLAUDE.md` or `AGENTS.md`. It
 never edits a settings file and refuses to overwrite an existing install.
+It warns first if Calamus hooks are already registered, including through
+the plugin: use the plugin or the raw install, not both.
 
-In each project:
+In each project, with `CALAMUS` set to the skill directory (the clone's
+`skills/calamus`, or the raw install's `~/.claude/skills/calamus`):
 
 ```bash
-~/.claude/skills/calamus/scripts/calamus-init            # docs/dev_journal.md + docs/product_insights.md
+"$CALAMUS/scripts/calamus-init"                          # docs/dev_journal.md + docs/product_insights.md
 echo ".calamus/" >> .gitignore                           # hook state and logs
 ```
 

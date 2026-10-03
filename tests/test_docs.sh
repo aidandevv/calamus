@@ -32,4 +32,13 @@ if [ -f "$HF" ]; then
   assert_eq "" "$(printf '%s\n' "$rows" | grep -E '\| verified \|$' | grep -vE 'https://[^ ]+ \| 20[0-9]{2}-[0-9]{2}-[0-9]{2} \|' || true)" "verified rows cite source and date"
 fi
 
+# README install: plugin first, raw symlink as the fallback.
+inst="$(sed -n '/^## Install/,/^## /p' "$REPO_ROOT/README.md")"
+first="$(printf '%s\n' "$inst" | awk '/^```bash/{f=1;next} /^```/{if(f)exit} f')"
+assert_contains "$first" "claude plugin install calamus@calamus" "README installs the plugin first"
+assert_contains "$inst" "calamus-install --host" "README keeps the raw install as fallback"
+RAT="$(cat "$REPO_ROOT/docs/design-rationale.md")"
+assert_contains "$RAT" "### Why one skill with per-host packages instead of per-host skills?" "rationale: per-host skills rejected"
+assert_contains "$RAT" "### Why no package generator yet?" "rationale: generator deferred"
+
 finish

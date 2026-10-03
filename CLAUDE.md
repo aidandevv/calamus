@@ -10,6 +10,11 @@ append-only journals as live project memory: an engineering decision journal
 (`docs/product_insights.md`), in `md`, `xml`, or `jsonl`. It installs on
 Claude Code, Codex CLI, and Cursor from one source. The repository root
 holds development files; `skills/calamus/` is what gets installed.
+`packaging/<host>/` wraps it as a plugin per host: a manifest plus hooks
+built from `assets/hosts/<host>/hooks.json`, with `skills/calamus` a symlink
+to the canonical skill — never a copy or an edited fork.
+`tests/test_packaging.sh` enforces both. Host facts the templates rely on
+are tracked, with sources, in `docs/host-facts.md`.
 
 The design spec is `docs/superpowers/specs/2026-09-26-calamus-design.md`
 and the implementation plan is `docs/superpowers/plans/2026-09-27-calamus.md`.
@@ -60,6 +65,7 @@ Where they disagree with the code, the code and tests are authoritative.
 ```bash
 bash tests/run.sh                                       # full offline suite; run before every commit
 python3 skills/calamus/scripts/lib/gendocs.py --check   # generated reference blocks are current
+claude plugin validate packaging/claude-code                # check the Claude Code plugin (offline)
 skills/calamus/scripts/calamus-install --host claude-code   # symlink skill, print hooks + adapter
 skills/calamus/scripts/calamus-init --format md         # create both journals in a target project
 skills/calamus/scripts/calamus-query --brief            # recall entries without reading whole files

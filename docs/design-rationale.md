@@ -138,6 +138,29 @@ Level 1 gate across four scripts, and hardcoded model names in each.
 same fields and runs one pipeline. Hosts differ only in registration
 templates and payload field names.
 
+### Why one skill with per-host packages instead of per-host skills?
+
+Claude Code, Codex, and Cursor differ in how hooks register, how long
+`SessionEnd` may run, which hooks need trust review, and how a skill is
+installed. They do not differ in what a good journal entry is or when to
+write one. Separate skills per host would fork `SKILL.md` and `references/`
+over differences that live outside them, and every procedure fix would
+need three edits. So there is one canonical skill, and `packaging/<host>/`
+adds only what each host needs to load it: a plugin manifest and a hooks
+file built from `assets/hosts/<host>/hooks.json`. Each package links to the
+canonical skill rather than copying it, and a layout test fails if a
+package's hooks drift from the template or its skill differs from the
+source. Per-host descriptions stay out until the activation experiment
+shows they earn at least 10 points of recall or 5 of precision.
+
+### Why no package generator yet?
+
+Three hand-written packages are small: a manifest and a hooks file each.
+The layout test already catches the one failure a generator would prevent,
+a package whose hooks no longer match the host template. A build step adds
+a tool to maintain and a regenerate-then-diff CI check. It becomes worth
+that cost when two or more packages drift from `assets/hosts/` in review.
+
 ### Why is the model configuration, not code?
 
 Every model string lives in `assets/calamus.env`. A backend never falls
