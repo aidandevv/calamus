@@ -1,0 +1,30 @@
+{"id": "d01", "kind": "direct", "prompt": "Log this decision in the engineering journal: we are switching the job queue from Redis to Postgres SKIP LOCKED.", "expect": "activate"}
+{"id": "d02", "kind": "direct", "prompt": "Add a checkpoint to docs/dev_journal.md for the auth refactor we just finished.", "expect": "activate"}
+{"id": "d03", "kind": "direct", "prompt": "Record a product insight: three users in onboarding interviews could not find the export button.", "expect": "activate"}
+{"id": "d04", "kind": "direct", "prompt": "What did we decide earlier about the retry policy? Check the dev journal.", "expect": "activate"}
+{"id": "d05", "kind": "direct", "prompt": "There is a CALAMUS-PENDING marker in the journal. Resolve it.", "expect": "activate"}
+{"id": "d06", "kind": "direct", "prompt": "Write a journal entry for the pivot from REST to gRPC for internal services.", "expect": "activate"}
+{"id": "d07", "kind": "direct", "prompt": "Append an entry to the product insights journal about churn after the pricing change.", "expect": "activate"}
+{"id": "d08", "kind": "direct", "prompt": "Use calamus to note the constraint we hit: the CI runner has no Docker socket.", "expect": "activate"}
+{"id": "d09", "kind": "direct", "prompt": "Search the engineering journal for anything about rate limiting.", "expect": "activate"}
+{"id": "d10", "kind": "direct", "prompt": "Journal the bug we just fixed: the cache key ignored the locale, so users saw the wrong language.", "expect": "activate"}
+{"id": "i01", "kind": "indirect", "prompt": "We just confirmed the race was in the token refresh path, not the client. Fixed it with a mutex and the flaky test is green 50 times in a row. Let's make sure we remember why.", "expect": "activate"}
+{"id": "i02", "kind": "indirect", "prompt": "We're going with SQLite instead of Postgres for the desktop app because users can't run a server. Keep that rationale somewhere we'll find it next month.", "expect": "activate"}
+{"id": "i03", "kind": "indirect", "prompt": "Support says enterprise trials keep stalling at SSO setup. That seems worth keeping track of for the roadmap.", "expect": "activate"}
+{"id": "i04", "kind": "indirect", "prompt": "Why did we drop the GraphQL layer last sprint? I don't remember the reasoning.", "expect": "activate"}
+{"id": "i05", "kind": "indirect", "prompt": "The migration is done and verified in staging. Wrap this milestone up properly before we move on.", "expect": "activate"}
+{"id": "i06", "kind": "indirect", "prompt": "Turns out the vendor API caps us at 10 requests per second, so batch sync is off the table. Note this before we forget.", "expect": "activate"}
+{"id": "i07", "kind": "indirect", "prompt": "Users keep saying the dashboard feels slow even though p95 is under 200 ms. I think it's perceived latency from the spinner. Hold on to that observation.", "expect": "activate"}
+{"id": "i08", "kind": "indirect", "prompt": "We changed our minds: the feature flag service stays in-house instead of buying LaunchDarkly. Capture the trade-off.", "expect": "activate"}
+{"id": "i09", "kind": "indirect", "prompt": "Before I start, what have we learned so far on this project about the billing module?", "expect": "activate"}
+{"id": "i10", "kind": "indirect", "prompt": "Positioning shift: we're pitching to platform teams now, not individual developers. That should be preserved for later sessions.", "expect": "activate"}
+{"id": "n01", "kind": "near-miss", "prompt": "Write a CHANGELOG entry for version 2.3.0.", "expect": "skip"}
+{"id": "n02", "kind": "near-miss", "prompt": "Summarize the git log for the last week.", "expect": "skip"}
+{"id": "n03", "kind": "near-miss", "prompt": "Add a docstring explaining what this function does.", "expect": "skip"}
+{"id": "n04", "kind": "near-miss", "prompt": "Create a daily journaling app in React with a calendar view.", "expect": "skip"}
+{"id": "n05", "kind": "near-miss", "prompt": "Fix the typo in the README heading.", "expect": "skip"}
+{"id": "n06", "kind": "near-miss", "prompt": "Write release notes for the customer newsletter.", "expect": "skip"}
+{"id": "n07", "kind": "near-miss", "prompt": "Explain the difference between an append-only log and a write-ahead log.", "expect": "skip"}
+{"id": "n08", "kind": "near-miss", "prompt": "Rename the variable usr to user across this file.", "expect": "skip"}
+{"id": "n09", "kind": "near-miss", "prompt": "Draft a commit message for the staged changes.", "expect": "skip"}
+{"id": "n10", "kind": "near-miss", "prompt": "Set up a logging library so the server writes JSON logs to stdout.", "expect": "skip"}
