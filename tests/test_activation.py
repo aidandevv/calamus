@@ -7,6 +7,7 @@ from helpers import REPO
 
 ACT = os.path.join(REPO, "skills", "calamus", "evals", "activation")
 sys.path.insert(0, ACT)
+sys.dont_write_bytecode = True  # keep the shipped skill free of caches
 
 import activation  # noqa: E402
 

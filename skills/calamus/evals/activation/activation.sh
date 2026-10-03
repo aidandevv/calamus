@@ -58,7 +58,7 @@ for variant in shared tuned; do
     (cd "$proj" && claude -p "$prompt" --output-format stream-json --verbose \
       --model "$model" --setting-sources project --allowedTools Skill,Read \
       --max-turns 3) > "$log" 2>/dev/null || true
-    python3 - "$py" "$log" "$id" "$variant" >> "$out/results.jsonl" <<'PY'
+    python3 -B - "$py" "$log" "$id" "$variant" >> "$out/results.jsonl" <<'PY'
 import importlib.util, json, sys
 spec = importlib.util.spec_from_file_location("activation", sys.argv[1])
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
