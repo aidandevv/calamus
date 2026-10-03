@@ -240,3 +240,19 @@
 **Follow-ups:** Verify Codex and Cursor skill paths and Cursor sessionEnd timeout; Run the activation experiment before generating per-host descriptions; Build the Claude Code plugin wrapper and live-check it; Add a duplicate-registration guard for Cursor importing Claude hooks
 
 ---
+
+### [CP-MILESTONE] | 2026-10-03: Host-Native Packages for Claude Code, Codex, and Cursor
+
+<!-- calamus id:20261003-1405-a232 schema:1 variant:lightweight -->
+
+**Summary:** Implemented the host-packaging plan: verified host facts with sources, an activation experiment harness, a Claude Code plugin with a repository marketplace, Codex and Cursor plugin packages, and an installer guard against double hook registration. Every package links to the canonical skill and reuses the host hook template.
+
+**Files/Modules Affected:** `packaging/`, `skills/calamus/scripts/calamus-install`, `skills/calamus/evals/activation/`, `docs/host-facts.md`, `tests/test_packaging.sh`
+
+**Key Trade-off:** Linked the packaged skill by symlink instead of copying it, so there is one source of truth, at the cost of relying on host symlink handling that is documented for Claude Code git installs but unverified for Codex, Cursor, and local-directory loading.
+
+**Evidence:** Offline suite passes: 54 Python tests and 326 shell assertions. claude plugin validate passes with only a missing-version warning, and claude --plugin-dir loads the plugin without errors. Not run: live plugin install with a compaction and session end, the activation experiment, and any Codex or Cursor check.
+
+**Follow-ups:** Run the Claude Code live check: plugin install, one compaction, one session end; Run the activation experiment and log its decision; Live-check the Codex and Cursor packages and update docs/host-facts.md
+
+---
