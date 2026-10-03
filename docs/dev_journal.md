@@ -224,3 +224,19 @@
 **Follow-ups:** None identified.
 
 ---
+
+### [CP-PIVOT] | 2026-10-03: Plan Shift From Hand-Merged Hooks to Host-Native Packaging
+
+<!-- calamus id:20261003-1319-e407 schema:1 variant:lightweight -->
+
+**Summary:** A research pass on one portable skill versus per-host skills found the host differences are in hooks, trust, timeouts, and install, not the journaling workflow. We adopted a shared core with per-host packages, starting with a Claude Code plugin, and deferred any generator.
+
+**Files/Modules Affected:** `skills/calamus/assets/hosts`, `skills/calamus/scripts/calamus-install`, `docs/superpowers/plans/2026-10-03-host-packaging.md`
+
+**Key Trade-off:** Rejected fully separate per-host skills because they would triple the review surface and risk schema and reference drift with no evidence of better activation. Kept the status quo only as the advanced manual fallback, since it leaves users hand-merging hook JSON.
+
+**Evidence:** Not yet verified. Two independent research reports agreed on the direction. They also corrected our assumptions: Claude Code SessionEnd defaults to 1.5s and our 60s is configured, and the Codex and Cursor skill install path and Cursor 5s timeout are unverified. No packaging or activation test has been run yet.
+
+**Follow-ups:** Verify Codex and Cursor skill paths and Cursor sessionEnd timeout; Run the activation experiment before generating per-host descriptions; Build the Claude Code plugin wrapper and live-check it; Add a duplicate-registration guard for Cursor importing Claude hooks
+
+---
