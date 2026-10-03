@@ -23,4 +23,13 @@ for pair in "engineering engineering-journal.md" "product product-insights.md"; 
   assert_contains "$(cat "$REFS/$2")" "$hdr" "$2 header matches schema"
 done
 
+# Host facts: every row carries a status; verified rows cite a URL and date.
+HF="$REPO_ROOT/docs/host-facts.md"
+assert_file "$HF" "host facts"
+if [ -f "$HF" ]; then
+  rows="$(grep -E '^\| [^-]' "$HF" | tail -n +2)"
+  assert_eq "" "$(printf '%s\n' "$rows" | grep -vE '\| (verified|unverified) \|$' || true)" "host fact rows have a status"
+  assert_eq "" "$(printf '%s\n' "$rows" | grep -E '\| verified \|$' | grep -vE 'https://[^ ]+ \| 20[0-9]{2}-[0-9]{2}-[0-9]{2} \|' || true)" "verified rows cite source and date"
+fi
+
 finish

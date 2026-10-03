@@ -38,6 +38,16 @@ assert_eq 1 "$([ -d "$H2/.agents/skills/calamus" ] && [ ! -L "$H2/.agents/skills
 assert_file "$H2/.agents/skills/calamus/scripts/hook.sh" "copied engine"
 assert_contains "$out" "'$H2/.agents/skills/calamus/scripts/hook.sh' --host cursor" "path with space is quoted"
 assert_eq "" "$(ls -A "$H" | grep -vE '^\.(claude|agents)$' || true)" "no settings files written"
+# Notes separate platform defaults from Calamus's configured timeouts.
+assert_contains "$out" "documents no default or maximum hook timeout" "cursor timeout note"
+assert_contains "$out" ".claude/settings.local.json" "cursor import note names all Claude files"
+H3="$R/home3"; mkdir -p "$H3"
+out="$(HOME="$H3" "$SKILL_DIR/scripts/calamus-install" --host claude-code)"
+assert_contains "$out" "1.5 s by default" "claude-code SessionEnd default"
+H4="$R/home4"; mkdir -p "$H4"
+out="$(HOME="$H4" "$SKILL_DIR/scripts/calamus-install" --host codex)"
+assert_contains "$out" "trust it with /hooks" "codex trust review note"
+assert_contains "$out" "1 s by default and 3 s at most" "codex SessionEnd limits"
 "$SKILL_DIR/scripts/calamus-install" --host nope >/dev/null 2>&1; assert_eq 2 "$?" "bad host"
 
 finish

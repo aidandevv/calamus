@@ -69,7 +69,15 @@ cat "$src/assets/adapter.md"
 
 echo
 case "$host" in
-  codex) echo "Note: Codex runs project-local hooks only in a trusted .codex/ layer; review them with /hooks." ;;
-  cursor) echo "Note: Cursor also imports hooks from .claude/settings.json. Use one registration, not both." ;;
+  claude-code)
+    echo "Note: SessionEnd hooks get 1.5 s by default; the 60 s timeout above raises that budget to its 60 s maximum." ;;
+  codex)
+    echo "Note: Codex runs no hook until you review and trust it with /hooks; a changed hook needs review again."
+    echo "Note: project-local hooks load only from a trusted .codex/ layer."
+    echo "Note: Codex gives SessionEnd 1 s by default and 3 s at most; the 3 s above is that maximum." ;;
+  cursor)
+    echo "Note: Cursor documents no default or maximum hook timeout; the values above are Calamus settings."
+    echo "Note: Cursor also imports hooks from .claude/settings.json, .claude/settings.local.json, and"
+    echo "      ~/.claude/settings.json. Use one registration, not both." ;;
 esac
 echo "Note: add .calamus/ to each project's .gitignore; it holds hook state and logs."

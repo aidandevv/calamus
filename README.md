@@ -64,10 +64,17 @@ entries when its adapter tells it to.
 | `turn-stop` — sweep once enough new text accrues | — | `Stop`, 90 s | `stop`, 90 s |
 | `session-end` | `SessionEnd`, 60 s, sweep | `SessionEnd`, 3 s, pending marker | `sessionEnd`, 5 s, pending marker |
 
-- Codex runs project-local hooks only in a trusted `.codex/` layer; review
-  them with `/hooks`.
-- Cursor imports hooks from `.claude/settings.json`. Register one or the
-  other, not both (a dedupe window is only a backstop).
+- Timeouts above are Calamus settings, not platform defaults. Claude Code
+  gives `SessionEnd` 1.5 s by default and raises it to a configured timeout,
+  up to 60 s. Codex gives `SessionEnd` 1 s by default and 3 s at most.
+  Cursor documents no default or maximum. Sources and access dates are in
+  [docs/host-facts.md](docs/host-facts.md).
+- Codex runs no hook until you review and trust it with `/hooks`, and asks
+  again when a hook changes. Project-local hooks also need a trusted
+  `.codex/` layer.
+- Cursor imports hooks from `.claude/settings.json`,
+  `.claude/settings.local.json`, and `~/.claude/settings.json`. Register one
+  or the other, not both (a dedupe window is only a backstop).
 - Codex and Cursor behavior is documentation-verified; only Claude Code is
   tested live.
 - **Other runtimes:** call `scripts/hook.sh --host generic --event <event>`
@@ -309,8 +316,8 @@ OpenAI Developers, read 2026-09-26
 `hooks.json` is an object keyed by event name. Events: `SessionStart`,
 `SessionEnd`, `PreToolUse`, `PostToolUse`, `PermissionRequest`, `PreCompact`,
 `PostCompact`, `UserPromptSubmit`, `SubagentStart`, `SubagentStop`, `Stop`,
-and `Interrupt` — there is no `TaskCompleted`. `SessionEnd` allows at most
-3 s. Project-local hooks load only when the project `.codex/` layer is
+and `Interrupt` — there is no `TaskCompleted`. `SessionEnd` defaults to 1 s
+and allows at most 3 s. Project-local hooks load only when the project `.codex/` layer is
 trusted. *Correction:* an earlier version of this README said Codex shares
 Claude Code's hook schema and supports `TaskCompleted`; it does neither.
 
@@ -333,8 +340,9 @@ hooks documentation, and the per-task Codex mode built on it was removed.
 
 **[Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks)**
 Anthropic, read 2026-09-26
-`SessionEnd` hooks share a 1.5 s budget unless a hook sets `timeout`, which
-raises it (up to 60 s). Calamus registers `timeout: 60` for its sweep.
+`SessionEnd` hooks share a 1.5 s budget by default; a longer per-hook
+`timeout` in settings raises it, up to 60 s. Calamus configures
+`timeout: 60` for its sweep.
 
 **[Cursor Hooks](https://cursor.com/docs/agent/hooks)** and
 **[Cursor Third-Party Hooks](https://cursor.com/docs/agent/third-party-hooks)**
