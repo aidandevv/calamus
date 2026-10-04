@@ -381,7 +381,11 @@ event rather than by host.
 **[Cursor CLI Headless Mode](https://cursor.com/docs/cli/headless)**
 Cursor, read 2026-09-28
 Documents `agent -p --output-format text`, but no model flag and no way to
-disable tools, so the Cursor backend ships disabled.
+disable tools, so the Cursor backend ships disabled. *Correction
+(2026-10-04):* the [CLI parameters reference](https://cursor.com/docs/cli/reference/parameters)
+now documents `--model`; there is still no flag that disables tools, so the
+backend stays disabled. The activation runner uses `--model` when
+`CALAMUS_CURSOR_MODEL` is set and otherwise labels its results unpinned.
 
 ### Eval Methodology
 

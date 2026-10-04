@@ -33,3 +33,7 @@ and Cursor rows are documentation-verified.
 | Hook commands run through a shell, so `"${PLUGIN_ROOT}"` in a plugin hook command expands (docs show `~` in a command, which implies a shell) | Codex | (not stated) | 2026-10-03 | unverified |
 | A plugin's symlinked `skills/calamus` directory is followed when the plugin is installed or loaded | Codex | (not documented) | 2026-10-03 | unverified |
 | A plugin's symlinked `skills/calamus` directory is followed when the plugin is loaded from `~/.cursor/plugins/local` | Cursor | (not documented) | 2026-10-03 | unverified |
+| Headless CLI `agent` takes `--model <model>`, `-p/--print` (all tools, including write and shell), `--output-format text\|json\|stream-json`, `--trust`, and `--sandbox enabled\|disabled` | Cursor | https://cursor.com/docs/cli/reference/parameters | 2026-10-04 | verified |
+| Without `--force`, headless edits are proposed, not applied | Cursor | https://cursor.com/docs/cli/headless | 2026-10-04 | verified |
+| stream-json events: `.type` (`system` init with `.model`, `assistant`, `tool_call`, `result`); file reads at `.tool_call.readToolCall.args.path` | Cursor | https://cursor.com/docs/cli/headless | 2026-10-04 | verified |
+| Skill activation in a headless run appears as a tool call that reads `calamus/SKILL.md` (no real transcript captured yet) | Cursor | (not documented) | 2026-10-04 | unverified |

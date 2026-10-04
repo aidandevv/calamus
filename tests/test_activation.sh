@@ -30,6 +30,37 @@ report="$(cat "$R/out/report.json")"
 assert_contains "$report" '"decision": "tuned"' "tuned recall gain triggers adoption"
 assert_contains "$out" "decision" "report printed"
 
+assert_contains "$report" '"pinned": true' "claude run is labeled pinned"
+
+# Cursor: fake `agent` speaking Cursor's documented stream-json shapes.
+cat > "$R/bin/agent" <<'FAKE'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FAKE_LOG"
+for a in "$@"; do prompt="$a"; done
+echo '{"type":"system","subtype":"init","model":"auto-fake"}'
+if [ -f .agents/skills/calamus/SKILL.md ] && printf '%s' "$prompt" | grep -qi 'journal'; then
+  echo "{\"type\":\"tool_call\",\"subtype\":\"started\",\"tool_call\":{\"readToolCall\":{\"args\":{\"path\":\"$PWD/.agents/skills/calamus/SKILL.md\"}}}}"
+fi
+echo '{"type":"result","duration_ms":1}'
+FAKE
+chmod +x "$R/bin/agent"
+: > "$R/calls.log"
+out="$(run bash "$RUN" --host cursor --out "$R/cur" 2>&1)"; rc=$?
+assert_eq 0 "$rc" "cursor runner succeeds unpinned"
+call="$(head -1 "$R/calls.log")"
+assert_contains "$call" "-p --output-format stream-json --trust" "cursor headless stream-json call"
+assert_not_contains "$call" "--model" "no model flag without a pin"
+assert_not_contains "$call" "--force" "edits stay proposed, never applied"
+report="$(cat "$R/cur/report.json")"
+assert_contains "$report" '"pinned": false' "cursor run labeled unpinned"
+assert_contains "$report" '"auto-fake"' "observed model recorded"
+assert_contains "$out" "UNPINNED" "console warns the run is unpinned"
+assert_contains "$report" '"recall": 40.0' "cursor activation classified"
+: > "$R/calls.log"
+run env CALAMUS_CURSOR_MODEL=pin-x bash "$RUN" --host cursor --out "$R/cur2" >/dev/null 2>&1
+assert_contains "$(head -1 "$R/calls.log")" "--model pin-x" "cursor pin passed when set"
+assert_contains "$(cat "$R/cur2/report.json")" '"pinned": true' "cursor run with a pin labeled pinned"
+
 run bash "$RUN" --host codex --out "$R/out2" >/dev/null 2>&1; assert_eq 2 "$?" "unsupported host"
 run env CALAMUS_CLAUDE_MODEL= bash "$RUN" --out "$R/out3" >/dev/null 2>&1
 assert_eq 1 "$([ ! -s "$R/out3/results.jsonl" ] && echo 1)" "no results without a model pin"

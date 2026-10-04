@@ -44,6 +44,37 @@ class ClassifyTests(unittest.TestCase):
         self.assertIsNone(r["reference"])
 
 
+def cursor_tool(kind, **args):
+    return {"type": "tool_call", "subtype": "started", "tool_call": {kind: {"args": args}}}
+
+
+class CursorClassifyTests(unittest.TestCase):
+    # Event paths follow Cursor's documented stream-json filters
+    # (.type, .tool_call.readToolCall.args.path, system init .model).
+    def test_read_of_skill_md_activates(self):
+        r = activation.classify([cursor_tool("readToolCall", path="/p/.agents/skills/calamus/SKILL.md")], "cursor")
+        self.assertTrue(r["activated"])
+
+    def test_any_tool_touching_skill_md_activates(self):
+        r = activation.classify([cursor_tool("shellToolCall", command="cat .agents/skills/calamus/SKILL.md")], "cursor")
+        self.assertTrue(r["activated"])
+
+    def test_reference_read_is_recorded(self):
+        r = activation.classify([
+            cursor_tool("readToolCall", path="/p/.agents/skills/calamus/SKILL.md"),
+            cursor_tool("readToolCall", path="/p/.agents/skills/calamus/references/engineering-journal.md")], "cursor")
+        self.assertEqual("engineering-journal.md", r["reference"])
+
+    def test_text_mention_does_not_activate(self):
+        r = activation.classify([
+            {"type": "assistant", "message": {"content": [{"text": "see calamus/SKILL.md"}]}}], "cursor")
+        self.assertFalse(r["activated"])
+
+    def test_observed_model_is_reported(self):
+        r = activation.classify([{"type": "system", "subtype": "init", "model": "auto-x"}], "cursor")
+        self.assertEqual("auto-x", r["model"])
+
+
 class ScoreTests(unittest.TestCase):
     PROMPTS = [{"id": "a", "expect": "activate"}, {"id": "b", "expect": "activate"},
                {"id": "c", "expect": "skip"}, {"id": "d", "expect": "skip"}]
