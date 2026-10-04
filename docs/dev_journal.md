@@ -256,3 +256,19 @@
 **Follow-ups:** Run the Claude Code live check: plugin install, one compaction, one session end; Run the activation experiment and log its decision; Live-check the Codex and Cursor packages and update docs/host-facts.md
 
 ---
+
+### [CP-INTEGRATION] | 2026-10-04: Cursor Activation Runs Accepted Unpinned, Labeled
+
+<!-- calamus id:20261004-1440-c6df schema:1 variant:lightweight -->
+
+**Summary:** Added Cursor to the activation runner. Results from a run without CALAMUS_CURSOR_MODEL are accepted but labeled unpinned, carry the model Cursor reported, and are not compared with pinned runs. Cursor's CLI reference now documents --model, so setting a pin later turns these into pinned runs with no code change.
+
+**Files/Modules Affected:** `skills/calamus/evals/activation/activation.sh`, `skills/calamus/evals/activation/activation.py`, `docs/host-facts.md`
+
+**Key Trade-off:** Accepted results whose model can change between runs, to get a Cursor activation signal before choosing a Cursor pin; the label keeps them out of pinned comparisons.
+
+**Evidence:** Offline tests with a fake agent CLI cover unpinned and pinned runs, the no --force call, and classification from Cursor's documented stream-json paths. No real Cursor transcript exists yet, so the activation signal itself is unverified.
+
+**Follow-ups:** Capture one real Cursor stream-json transcript and replace the doc-derived fixture; Decide whether to set CALAMUS_CURSOR_MODEL now that --model is documented; Revisit the disabled Cursor backend: --model exists but tools still cannot be disabled
+
+---
