@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+"""Turn Calamus journals into writeups, diagrams, and code excerpts. Read-only on journals.
+
+usage: calamus-synth <command> [options]
+  extract   [--root DIR] [--since YYYY-MM-DD] [--out DIR]
+  diagrams  DIR                         facts.json + analysis.json -> .mmd files
+  excerpt   --id ID (--journaled | --path P (--symbol NAME | --lines A-B)) [--at REV]
+            [--diff [--from REV]] [--max-lines N] [--root DIR]
+  embed     DIR                         copy .mmd files into their marked blocks
+  snapshot  DIR [--root DIR]            keep the pre-voice draft under .calamus/state/
+  check     DIR [--root DIR] [--voice PATH] [--mmdc]
+  render    DIR --html                  standalone HTML page, only on request
+
+exit codes: 0 ok, 2 usage or input error, 3 check failure, 4 excerpt refused
+"""
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "lib"))
+import base  # noqa: E402
+
+USAGE = __doc__.split("\n\n", 1)[1]
+
+
+def main(argv):
+    try:
+        base.use_calamus()
+        import commands
+        names = sorted(n[4:] for n in dir(commands) if n.startswith("cmd_"))
+        if not argv or argv[0] not in names:
+            sys.stderr.write(USAGE)
+            return 2
+        return getattr(commands, "cmd_" + argv[0])(argv[1:])
+    except (base.MissingSibling, base.UsageError) as e:
+        sys.stderr.write("calamus-synth: %s\n" % e)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

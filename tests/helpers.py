@@ -77,3 +77,9 @@ def sample_records():
         {"record": "marker", "kind": "eval-fail", "backend": "claude", "model": "m-1", "reason": "Answers 2 of 8 --> weak."},
     ]
     return [dict(ENG_LIGHT), eng_full, snap], [prod_light, prod_full], markers
+
+
+SYNTH = os.path.join(REPO, "skills", "calamus-synthesis")
+SYNTH_LIB = os.path.join(SYNTH, "scripts", "lib")
+if SYNTH_LIB not in sys.path:
+    sys.path.insert(0, SYNTH_LIB)
