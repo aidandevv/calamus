@@ -6,8 +6,10 @@ import sys
 
 import base
 import cli  # calamus sibling, on sys.path via base.use_calamus()
+import analysis
 import excerpt
 import facts
+import mermaid
 
 DATE_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
 
@@ -67,4 +69,22 @@ def cmd_excerpt(argv):
     except excerpt.Refused as e:
         sys.stderr.write("calamus-synth: excerpt refused: %s\n" % e)
         return 4
+    return 0
+
+
+def cmd_diagrams(argv):
+    ap = argparse.ArgumentParser(prog="calamus-synth diagrams")
+    ap.add_argument("dir")
+    a = ap.parse_args(argv)
+    f = analysis.load(os.path.join(a.dir, "facts.json"))
+    an = analysis.load(os.path.join(a.dir, "analysis.json"))
+    errs = analysis.validate(an, f)
+    for e in errs:
+        sys.stderr.write("calamus-synth: analysis.json: %s\n" % e)
+    if errs:
+        return 2
+    for name, text in sorted(mermaid.generate(f, an, base.default_conf("synth.conf")).items()):
+        with open(os.path.join(a.dir, name), "w", encoding="utf-8") as fh:
+            fh.write(text)
+        print(name)
     return 0

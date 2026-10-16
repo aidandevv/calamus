@@ -76,3 +76,24 @@ def write(root, fmt, eng, prod):
         text = render.header(jname, fmt) + ("\n" + "\n".join(body) if fmt == "md" and body else "".join(body))
         with open(os.path.join(root, "docs", "%s.%s" % (STEMS[jname], fmt)), "w", encoding="utf-8") as f:
             f.write(text)
+
+def sample_analysis(facts):
+    seq = facts["sequence"]
+    pivot = seq[PIVOT_POS]
+    return {
+        "version": 1, "mode": "full",
+        "phases": [
+            {"key": "p1", "name": "Core parser", "goal": "Parse input reliably", "first": seq[0], "last": seq[7]},
+            {"key": "p2", "name": "CLI hardening", "goal": "Make the CLI dependable", "first": seq[8], "last": seq[15]},
+            {"key": "p3", "name": "Web app", "goal": "Serve results over HTTP", "first": seq[16], "last": seq[23]},
+        ],
+        "epochs": [
+            {"key": "e1", "name": "Command-line tool", "phases": ["p1", "p2"], "ended_by": pivot},
+            {"key": "e2", "name": "Web service", "phases": ["p3"], "ended_by": None},
+        ],
+        "pivots": [
+            {"id": pivot, "rank": 1, "label": "Move to the web", "before": "A local CLI",
+             "trigger": "Users asked to share results", "after": "A hosted web app",
+             "rationale": "Every later entry builds on the web stack.", "origin": "engine", "sources": [pivot]},
+        ],
+    }

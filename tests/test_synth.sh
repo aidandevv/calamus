@@ -35,4 +35,23 @@ after="$(cat "$R/docs/dev_journal.md" "$R/docs/product_insights.md" | shasum)"
 assert_eq "$before" "$after" "extract leaves journals byte-identical"
 (cd "$R" && "$SYN" extract --since 2026-13-45 >/dev/null 2>&1); assert_eq 2 "$?" "bad --since exits 2"
 
+# diagrams: validates analysis.json, writes byte-identical .mmd files.
+W="$R/docs/writeups/t"
+python3 - "$W" "$REPO_ROOT/tests" <<'PY'
+import json, sys
+sys.path.insert(0, sys.argv[2])
+import synth_fixture as fx
+f = json.load(open(sys.argv[1] + "/facts.json"))
+json.dump(fx.sample_analysis(f), open(sys.argv[1] + "/analysis.json", "w"), indent=2)
+PY
+"$SYN" diagrams "$W" >/dev/null; assert_eq 0 "$?" "diagrams exits 0"
+first="$(cat "$W"/*.mmd | shasum)"
+"$SYN" diagrams "$W" >/dev/null
+assert_eq "$first" "$(cat "$W"/*.mmd | shasum)" "diagrams regenerate byte-identical"
+printf '{not json' > "$W/analysis.json"
+err="$("$SYN" diagrams "$W" 2>&1 >/dev/null)"; rc=$?
+assert_eq 2 "$rc" "malformed analysis.json exits 2"
+assert_contains "$err" "analysis.json" "malformed analysis.json is named"
+assert_not_contains "$err" "Traceback" "no traceback on malformed analysis.json"
+
 finish
