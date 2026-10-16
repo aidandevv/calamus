@@ -2,6 +2,7 @@
 import argparse
 import os
 import re
+import shutil
 import sys
 
 import base
@@ -10,7 +11,11 @@ import analysis
 import embed
 import excerpt
 import facts
+import fidelity
+import lint
 import mermaid
+import mmdlint
+import voice
 
 DATE_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
 
@@ -114,3 +119,80 @@ def cmd_embed(argv):
                 f.write(new)
             print(os.path.basename(path))
     return status
+
+
+def snapshot_dir(root, d):
+    return os.path.join(root, ".calamus", "state", "synth", os.path.basename(os.path.normpath(d)))
+
+
+def _read(path):
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
+def cmd_snapshot(argv):
+    ap = argparse.ArgumentParser(prog="calamus-synth snapshot")
+    ap.add_argument("dir")
+    ap.add_argument("--root")
+    a = ap.parse_args(argv)
+    root = cli.project_root(a.root)
+    dest = snapshot_dir(root, a.dir)
+    os.makedirs(dest, exist_ok=True)
+    for path in _md_files(a.dir):
+        shutil.copyfile(path, os.path.join(dest, os.path.basename(path)))
+    print(os.path.relpath(dest, root))
+    return 0
+
+
+def cmd_check(argv):
+    ap = argparse.ArgumentParser(prog="calamus-synth check")
+    ap.add_argument("dir")
+    ap.add_argument("--root")
+    ap.add_argument("--voice")
+    ap.add_argument("--mmdc", action="store_true")
+    a = ap.parse_args(argv)
+    root = cli.project_root(a.root)
+    conf = base.default_conf("synth.conf")
+    style = voice.merged_style(base.default_conf("style.conf"), voice.locate(root, a.voice))
+    snap = snapshot_dir(root, a.dir)
+    fails, warns, records = [], [], {}
+
+    def lookup(rid):
+        if not records:
+            records.update({r["id"]: r for r in facts.load(root)[1]})
+        if rid not in records:
+            raise base.UsageError("no entry with id %s" % rid)
+        return records[rid]
+
+    for path in _md_files(a.dir):
+        name, text = os.path.basename(path), _read(path)
+        fails += [(name, n, "abs-path", m) for n, m in fidelity.abs_paths(text)]
+        fails += [(name, n, "diagram", m) for n, m in embed.check(text, a.dir)]
+        fails += [(name, n, "excerpt", m) for n, m in excerpt.verify(text, root, conf, style, lookup)]
+        found = excerpt.markers(text)
+        if len(found) > base.num(conf, "max_excerpts"):
+            warns.append((name, found[0][0], "excerpt-count", "%d excerpts in one file" % len(found)))
+        warns += [(name, n, "working-tree", "excerpt quotes the working tree, not a commit")
+                  for n, m in found if "@working-tree:" in m.group("spec")]
+        if os.path.isfile(os.path.join(snap, name)):
+            fails += [(name, n, "fidelity", m) for n, m in fidelity.compare(_read(os.path.join(snap, name)), text)]
+        warns += [(name, n, "uncited", m) for n, m in fidelity.uncited_findings(text)]
+        warns += [(name, f["line"], f["rule"], f["text"]) for f in lint.lint(text, name, style)]
+    mmds = sorted(n for n in os.listdir(a.dir) if n.endswith(".mmd"))
+    extras = [n for n in mmds if n.startswith("extra-")]
+    if len(extras) > base.num(conf, "max_extra_diagrams"):
+        warns.append((extras[0], 1, "extra-diagrams", "%d mechanism diagrams" % len(extras)))
+    if a.mmdc and not shutil.which("mmdc"):
+        warns.append(("-", 0, "mmdc", "Mermaid CLI not found; structural lint only"))
+    for name in mmds:
+        path = os.path.join(a.dir, name)
+        fails += [(name, n, "mermaid", m) for n, m in mmdlint.lint(_read(path), conf)]
+        if a.mmdc and shutil.which("mmdc"):
+            err = mmdlint.mmdc(path)
+            if err:
+                fails.append((name, 1, "mmdc", err.splitlines()[0]))
+    for kind, rows in (("FAIL", fails), ("WARN", warns)):
+        for name, n, rule, msg in rows:
+            print("%s %s:%d %s: %s" % (kind, name, n, rule, msg))
+    print("check: %d failures, %d warnings" % (len(fails), len(warns)))
+    return 3 if fails else 0

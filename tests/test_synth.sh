@@ -54,4 +54,19 @@ assert_eq 2 "$rc" "malformed analysis.json exits 2"
 assert_contains "$err" "analysis.json" "malformed analysis.json is named"
 assert_not_contains "$err" "Traceback" "no traceback on malformed analysis.json"
 
+# Every command leaves both journals byte-identical (spec 11).
+python3 - "$W" "$REPO_ROOT/tests" <<'PY'
+import json, sys
+sys.path.insert(0, sys.argv[2])
+import synth_fixture as fx
+f = json.load(open(sys.argv[1] + "/facts.json"))
+json.dump(fx.sample_analysis(f), open(sys.argv[1] + "/analysis.json", "w"), indent=2)
+PY
+"$SYN" diagrams "$W" >/dev/null
+printf '# Overview\n\n<!-- diagram: timeline.mmd -->\n' > "$W/overview.md"
+"$SYN" embed "$W" >/dev/null; assert_eq 0 "$?" "embed exits 0"
+(cd "$R" && "$SYN" snapshot "$W" >/dev/null); assert_eq 0 "$?" "snapshot exits 0"
+(cd "$R" && "$SYN" check "$W" >/dev/null); assert_eq 0 "$?" "check passes a fresh writeup"
+assert_eq "$before" "$(cat "$R/docs/dev_journal.md" "$R/docs/product_insights.md" | shasum)" "all commands leave journals byte-identical"
+
 finish
