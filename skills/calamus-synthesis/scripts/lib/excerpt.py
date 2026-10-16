@@ -3,6 +3,7 @@ import ast
 import datetime
 import fnmatch
 import os
+import posixpath
 import re
 import subprocess
 
@@ -47,6 +48,8 @@ def safe_path(root, path):
     if (not norm or os.path.isabs(norm) or norm.startswith("~") or re.match(r"^[A-Za-z]:", norm)
             or ".." in norm.split("/") or re.search(r"\s", norm)):
         raise Refused("path must be repository-relative, without '..' or whitespace")
+    if posixpath.normpath(norm) != norm:
+        raise Refused("path must be in canonical form (no trailing '/', './', or '//')")
     if norm.startswith(":") or re.search(r"[*?\[\]]", norm):
         raise Refused("path must name one file literally, without glob or pathspec syntax")
     real_root = os.path.realpath(root)
@@ -93,11 +96,8 @@ def _read(root, rev, path):
         with open(full, "rb") as f:
             data = f.read()
     else:
-        entry = _git(root, "ls-tree", rev, "--", path).stdout.decode("utf-8", "replace").split()
-        if not entry:
+        if not _blob_or_absent(root, rev, path):
             raise Refused("%s not found at commit %s" % (path, rev[:7]))
-        if entry[1] != "blob" or entry[0] == "120000":
-            raise Refused("%s is not a regular file at commit %s" % (path, rev[:7]))
         p = _git(root, "show", "%s:%s" % (rev, path))
         if p.returncode != 0:
             raise Refused("%s not found at commit %s" % (path, rev[:7]))
@@ -159,10 +159,21 @@ def _check_secret_file(path, text, style):
     _check_secret_marker(path, text, style)
 
 
+def _tree_entry(root, rev, path):
+    """(mode, type) of exactly `path` at rev, or None. Never a directory's contents."""
+    out = _git(root, "ls-tree", "--full-tree", "-z", rev, "--", path).stdout.decode("utf-8", "replace")
+    entries = [e for e in out.split("\0") if e]
+    if len(entries) != 1:
+        return None if not entries else ("", "many")
+    meta, _, name = entries[0].partition("\t")
+    mode, kind = meta.split()[:2]
+    return (mode, kind) if name == path else ("", "other")
+
+
 def _blob_or_absent(root, rev, path):
     """True for a regular file at rev, False when absent; refuses trees and symlinks."""
-    entry = _git(root, "ls-tree", rev, "--", path).stdout.decode("utf-8", "replace").split()
-    if not entry:
+    entry = _tree_entry(root, rev, path)
+    if entry is None:
         return False
     if entry[1] != "blob" or entry[0] == "120000":
         raise Refused("%s is not a regular file at commit %s" % (path, rev[:7]))

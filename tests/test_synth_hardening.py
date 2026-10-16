@@ -192,6 +192,12 @@ class DiffGuardTests(Repo):
     def test_directory_diff_is_refused(self):
         self.refused("core")
 
+    def test_non_canonical_paths_are_refused(self):
+        for path in ("core/", "./core/a.yml", "core//a.yml", "core/./a.yml"):
+            self.refused(path)
+            with self.assertRaises(excerpt.Refused, msg=path):
+                excerpt.excerpt(self.root, E1, CONF, STYLE, path=path, lines=(1, 1), at="HEAD")
+
     def test_single_file_diff_still_works(self):
         out = excerpt.excerpt(self.root, E1, CONF, STYLE, path="core/a.yml", diff=True, at="HEAD")
         self.assertIn("+x: 2", out)
