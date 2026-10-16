@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "calamus-synthesis facts.json",
+  "type": "object",
+  "required": ["version", "journals", "records", "sequence", "sessions", "signals", "candidates", "stats", "warnings"],
+  "properties": {
+    "version": {"const": 1},
+    "journals": {"type": "object"},
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "journal", "variant", "date", "time", "tag", "title", "files", "summary",
+                     "evidence", "followups", "pivot_text", "has_code", "legacy", "crosslog"],
+        "properties": {
+          "code_refs": {
+            "type": "array",
+            "items": {"type": "object", "required": ["path"],
+                      "properties": {"path": {"type": "string"}, "commit": {"type": "string"},
+                                     "date": {"type": "string"}, "missing": {"const": true}}}
+          }
+        }
+      }
+    },
+    "sequence": {"type": "array", "items": {"type": "string"}},
+    "sessions": {"type": "array"},
+    "signals": {
+      "type": "array",
+      "items": {"type": "object", "required": ["kind", "id"],
+                "properties": {"kind": {"enum": ["gap", "tag_shift", "file_turnover", "explicit_pivot",
+                                                 "architecture", "crosslog_pair", "open_followup",
+                                                 "unverified_evidence"]}}}
+    },
+    "candidates": {
+      "type": "array",
+      "items": {"type": "object", "required": ["pos", "id", "score", "explicit_pivot", "signals"]}
+    },
+    "stats": {"type": "object", "required": ["entries", "first", "last", "tags"]},
+    "warnings": {"type": "array", "items": {"type": "string"}}
+  }
+}

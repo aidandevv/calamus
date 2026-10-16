@@ -2,6 +2,7 @@
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SKILL_DIR="$REPO_ROOT/skills/calamus"
+SYNTH_DIR="$REPO_ROOT/skills/calamus-synthesis"
 FAILS=0
 TESTS=0
 

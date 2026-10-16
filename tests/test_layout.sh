@@ -14,5 +14,7 @@ offenders="$(grep -rlE 'haiku|gpt-5|sonnet|opus' "$SKILL_DIR" 2>/dev/null \
   | sed "s|$SKILL_DIR/||" | grep -v '^assets/calamus.env$' \
   | sort | tr '\n' ' ')"
 assert_eq "" "$offenders" "model strings outside assets/calamus.env"
+assert_eq "" "$(grep -rlE 'haiku|gpt-5|sonnet|opus' "$SYNTH_DIR" 2>/dev/null | sed "s|$SYNTH_DIR/||" | tr '\n' ' ')" \
+  "no model strings in calamus-synthesis"
 
 finish
