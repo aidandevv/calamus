@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install the calamus skill for one host and print the config to merge.
+# Install the calamus skills (calamus, calamus-synthesis) for one host and print the config to merge.
 #   calamus-install --host <claude-code|codex|cursor> [--copy]
 # Symlinks (or with --copy, copies) the skill into the host's skills
 # directory, then prints the hooks config and the adapter text. It never
@@ -18,6 +18,7 @@ while [ $# -gt 0 ]; do
 done
 
 src="$(cd "$(dirname "$0")/.." && pwd -P)"
+synth_src="$(dirname "$src")/calamus-synthesis"
 case "$host" in
   claude-code) dest="$HOME/.claude/skills/calamus"
     settings="~/.claude/settings.json (all projects) or .claude/settings.json (one project)"
@@ -54,18 +55,24 @@ if [ -n "$found" ]; then
   echo
 fi
 
-if [ -e "$dest" ] || [ -L "$dest" ]; then
-  echo "refusing to overwrite existing $dest; remove it first to reinstall" >&2
-  exit 1
-fi
+synth_dest="$(dirname "$dest")/calamus-synthesis"
+for d in "$dest" "$synth_dest"; do
+  if [ -e "$d" ] || [ -L "$d" ]; then
+    echo "refusing to overwrite existing $d; remove it first to reinstall" >&2
+    exit 1
+  fi
+done
 mkdir -p "$(dirname "$dest")"
 if [ "$copy" -eq 1 ]; then
   cp -R "$src" "$dest"
   echo "Copied skill to $dest"
+  if [ -d "$synth_src" ]; then cp -R "$synth_src" "$synth_dest"; echo "Copied skill to $synth_dest"; fi
 else
   ln -s "$src" "$dest"
   echo "Linked $dest -> $src"
+  if [ -d "$synth_src" ]; then ln -s "$synth_src" "$synth_dest"; echo "Linked $synth_dest -> $synth_src"; fi
 fi
+[ -d "$synth_src" ] || echo "Note: calamus-synthesis not found beside calamus; installed calamus only."
 
 repo="$(cd "$src/../.." && pwd -P)"
 pkg="$repo/packaging/$host"

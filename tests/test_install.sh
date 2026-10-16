@@ -26,6 +26,7 @@ assert_eq "" "$(grep -oE '(~|/Users|/home|\.claude/|\.codex/|\.agents/)[^ ]*' "$
 R="$(mk_repo)"; H="$R/home"; mkdir -p "$H"
 out="$(HOME="$H" "$SKILL_DIR/scripts/calamus-install" --host claude-code)"
 assert_eq "$SKILL_DIR" "$(cd "$H/.claude/skills/calamus" && pwd -P)" "claude-code symlink target"
+assert_eq "$SYNTH_DIR" "$(cd "$H/.claude/skills/calamus-synthesis" && pwd -P)" "claude-code links the synthesis skill"
 assert_contains "$out" "\"command\": \"$H/.claude/skills/calamus/scripts/hook.sh --host claude-code --event session-end\"" "resolved command"
 assert_not_contains "$out" "__CALAMUS_DIR__" "placeholder resolved"
 assert_contains "$out" "Use the \`calamus\` skill" "adapter printed"
@@ -36,6 +37,9 @@ H2="$R/home two"; mkdir -p "$H2"
 out="$(HOME="$H2" "$SKILL_DIR/scripts/calamus-install" --host cursor --copy)"
 assert_eq 1 "$([ -d "$H2/.agents/skills/calamus" ] && [ ! -L "$H2/.agents/skills/calamus" ] && echo 1)" "--copy copies"
 assert_file "$H2/.agents/skills/calamus/scripts/hook.sh" "copied engine"
+assert_file "$H2/.agents/skills/calamus-synthesis/scripts/calamus-synth" "--copy copies the synthesis skill"
+err="$("$H2/.agents/skills/calamus-synthesis/scripts/calamus-synth" 2>&1 >/dev/null)"
+assert_contains "$err" "usage: calamus-synth" "copied synthesis skill finds its copied sibling"
 assert_contains "$out" "'$H2/.agents/skills/calamus/scripts/hook.sh' --host cursor" "path with space is quoted"
 assert_eq "" "$(ls -A "$H" | grep -vE '^\.(claude|agents)$' || true)" "no settings files written"
 # Notes separate platform defaults from Calamus's configured timeouts.
@@ -67,5 +71,11 @@ H6="$R/home6"; mkdir -p "$H6"
 out="$(cd "$R" && HOME="$H6" "$SKILL_DIR/scripts/calamus-install" --host codex 2>&1)"
 assert_not_contains "$out" "already registered" "no warning on a clean machine"
 "$SKILL_DIR/scripts/calamus-install" --host nope >/dev/null 2>&1; assert_eq 2 "$?" "bad host"
+
+# Refuses when only the synthesis destination exists.
+HR="$R/home-refuse"; mkdir -p "$HR/.claude/skills/calamus-synthesis"
+HOME="$HR" "$SKILL_DIR/scripts/calamus-install" --host claude-code >/dev/null 2>&1
+assert_eq 1 "$?" "refuses an existing synthesis destination"
+assert_file_absent "$HR/.claude/skills/calamus" "nothing installed after a refusal"
 
 finish

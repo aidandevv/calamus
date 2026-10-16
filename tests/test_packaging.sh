@@ -18,11 +18,16 @@ PY
 # package-specific, and the bundled skill resolves to the canonical one.
 check_no_fork() {
   local pkg="$1"; shift
-  local extra
-  extra="$(cd "$pkg" && find . \( -type f -o -type l \) ! -path './skills/calamus' ! -path './skills/calamus/*' | sed 's|^\./||' | sort)"
+  local extra skill src
+  extra="$(cd "$pkg" && find . \( -type f -o -type l \) \
+    ! -path './skills/calamus' ! -path './skills/calamus/*' \
+    ! -path './skills/calamus-synthesis' ! -path './skills/calamus-synthesis/*' | sed 's|^\./||' | sort)"
   assert_eq "$(printf '%s\n' "$@" | sort)" "$extra" "$(basename "$pkg") holds only its manifests"
-  assert_eq "$(cd "$SKILL_DIR" && pwd -P)" "$(cd "$pkg/skills/calamus" && pwd -P)" "$(basename "$pkg") skill is the canonical skill"
-  assert_eq "" "$(diff -r "$SKILL_DIR" "$pkg/skills/calamus" 2>&1 || true)" "$(basename "$pkg") skill bytes equal canonical"
+  for skill in calamus calamus-synthesis; do
+    src="$REPO_ROOT/skills/$skill"
+    assert_eq "$(cd "$src" && pwd -P)" "$(cd "$pkg/skills/$skill" 2>/dev/null && pwd -P)" "$(basename "$pkg") $skill is the canonical skill"
+    assert_eq "" "$(diff -r "$src" "$pkg/skills/$skill" 2>&1 || true)" "$(basename "$pkg") $skill bytes equal canonical"
+  done
 }
 
 CC="$P/claude-code"

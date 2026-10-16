@@ -27,6 +27,8 @@ skills/calamus/                the distributable skill
   scripts/backends/            claude | codex | cursor | generic
   assets/                      calamus.env (all model pins), profiles/, schema/, hosts/, adapter.md
   evals/                       rubric, Level 2 scorer, Level 4 plan, activation experiment
+skills/calamus-synthesis/      read-only writeups from the journals: phases, pivots, diagrams, excerpts
+  scripts/calamus-synth        extract | diagrams | excerpt | embed | snapshot | check | render
 packaging/                     per-host plugin wrappers: manifests + hooks, skill linked from skills/
 .claude-plugin/                marketplace for the Claude Code plugin
 docs/                          design rationale, spec, and this repo's own journals
@@ -171,6 +173,30 @@ calamus-query --id 20260927-1630-a1b2               # one entry in full
 calamus-query --tag CP-COMPACT-SNAPSHOT --last 1    # where to resume after compaction
 calamus-convert --to xml                            # writes docs/*.xml beside the originals
 ```
+
+---
+
+## Writeups
+
+`calamus-synthesis` turns the journals into documents a person can read
+cold: an overview, phase and pivot history, decision log, insights, a
+white-paper scaffold, or a brief on one decision. Ask for one ("write up
+this project", "why did we move to SQLite?") and the skill runs these
+steps:
+
+```bash
+calamus-synth extract --out docs/writeups/2026-10-15-full   # facts.json: records, signals, candidates
+calamus-synth diagrams docs/writeups/2026-10-15-full         # timeline, phases, pivots, mind map (.mmd)
+calamus-synth excerpt --id <entry> --path src/x.py --symbol f # verbatim code from the commit of that entry
+calamus-synth check docs/writeups/2026-10-15-full            # citations, excerpts, diagrams, style lint
+```
+
+The engine finds candidate phase boundaries from time gaps, tag-mix
+shifts, file turnover, and explicit pivots; the model names them. Every
+claim cites an entry id. Code excerpts are re-extracted on every `check`,
+so an edited excerpt fails. Diagrams are Mermaid source embedded in the
+Markdown; HTML is written only on request. The skill never writes to a
+journal.
 
 ---
 

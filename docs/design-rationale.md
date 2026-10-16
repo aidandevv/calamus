@@ -200,3 +200,25 @@ To support another host:
 
 To support another model, point the `generic` backend at it with
 `CALAMUS_LLM_CMD` (environment or user-level config only).
+
+### Why a sibling skill for writeups instead of more calamus commands?
+
+The calamus router and adapter load in every session and are size-capped.
+Writeups are occasional, need their own procedure and style rules, and do
+not need hooks. A sibling skill keeps that material out of the always-loaded
+path while reusing the calamus parser, so the two cannot disagree about
+what an entry says.
+
+### Why excerpts come from a commit, not the working tree?
+
+A writeup explains a decision as it was made. The working tree shows the
+code after every later change, which can contradict the entry beside it.
+Entries carry no commit hash, so the excerpt resolves the latest commit
+that touched the path by the entry's time plus a grace window, and the
+caption names that commit so a reader can check it.
+
+### Why is the style lint advisory?
+
+Sentence-length bands and phrase lists catch generic prose, but text
+tuned to pass them can lose meaning. Findings are warnings, the model
+revises at most twice, and what remains is reported rather than forced.

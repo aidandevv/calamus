@@ -37,3 +37,6 @@ and Cursor rows are documentation-verified.
 | Without `--force`, headless edits are proposed, not applied | Cursor | https://cursor.com/docs/cli/headless | 2026-10-04 | verified |
 | stream-json events: `.type` (`system` init with `.model`, `assistant`, `tool_call`, `result`); file reads at `.tool_call.readToolCall.args.path` | Cursor | https://cursor.com/docs/cli/headless | 2026-10-04 | verified |
 | Skill activation in a headless run appears as a tool call that reads `calamus/SKILL.md` (no real transcript captured yet) | Cursor | (not documented) | 2026-10-04 | unverified |
+| A skill can hand a task brief to a general-purpose subagent through the Task/Agent tool | Claude Code | https://code.claude.com/docs/en/sub-agents | 2026-10-15 | verified |
+| A skill can hand a task brief to a general-purpose subagent | Codex | (not checked) | 2026-10-15 | unverified |
+| A skill can hand a task brief to a general-purpose subagent | Cursor | (not checked) | 2026-10-15 | unverified |
