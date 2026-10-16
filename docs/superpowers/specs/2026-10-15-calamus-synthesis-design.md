@@ -166,7 +166,8 @@ file a record names, it holds the resolved commit (section 8.2) or
 
 Signals are computed over one sequence: engineering decision entries when
 there are at least `min_entries` of them, otherwise all entries, ordered by
-date then id. Product entries are placed into phases by date during
+date, then the time in the id, then journal order. Legacy ids end in a
+content hash, so they are never used to break a tie. Product entries are placed into phases by date during
 analysis.
 
 - **Time gaps**: an inter-entry gap greater than `gap_factor` times the
@@ -454,11 +455,14 @@ whitespace are refused.
 ### 8.4 Guards
 
 Exit 4 refuses an excerpt when the path is absolute, contains `..`, or
-leaves the repository; the path does not exist at the commit; the content
-is binary; or a line matches a secret pattern in `assets/style.conf`
-(private-key headers, common cloud and forge token prefixes, and
-`key|secret|token|password = "<literal>"` assignments). The refusal message
-names the rule and never prints the matching line.
+leaves the repository; the path does not exist at the commit or is not a
+regular file there (a directory or a symlink); the content is binary; the
+file name matches a key or environment file (`*.pem`, `*.key`, `id_rsa*`,
+`.env*`, and others in `assets/style.conf`); the file contains a private-key
+header anywhere; or a selected line matches a secret pattern (common cloud
+and forge token prefixes, and quoted or unquoted assignments to names
+containing key, secret, token, or password). The refusal message names the
+rule and never prints the matching line.
 
 ### 8.5 Verification
 
@@ -512,7 +516,9 @@ profile or into the repository.
    that remain after the second pass are listed in the run summary, not
    chased further.
 4. `calamus-synth snapshot <dir>` keeps the pre-voice draft under
-   `.calamus/state/synth/<slug>/`, which is never committed.
+   `.calamus/state/synth/<slug>/`, which is never committed. `extract
+   --out <dir>` clears that snapshot, so a rerun never compares a new
+   draft with an old one.
 5. A voice pass rewrites prose only. Tables, citations, diagrams, excerpts,
    and `facts.json` are excluded.
 6. `check` runs again and compares against the snapshot. On a fidelity
@@ -632,7 +638,9 @@ citation nor an `(inferred)` label.
 ### 12.1 Failure handling
 
 These are CLIs, not hooks, so nonzero exits are allowed. Exit 2: usage
-error, invalid `analysis.json`, or missing sibling skill or journal. Exit 3:
+error, unreadable or invalid input (including an `analysis.json` missing a
+required field or holding a wrong type), or missing sibling skill or
+journal. No command prints a traceback for bad input. Exit 3:
 `check` found a fidelity, excerpt, or diagram failure. Exit 4: an excerpt
 was refused (8.4). Malformed records are skipped and recorded in
 `warnings`. A thin journal produces a timeline and a gap report.

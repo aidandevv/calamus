@@ -44,7 +44,9 @@ def load(root):
             entries.append(norm)
     if not info:
         raise base.UsageError("no journals under docs/; run calamus-init first")
-    entries.sort(key=lambda r: (r["date"], r["id"]))
+    # Date, then logged time from the id; the stable sort keeps journal order on ties,
+    # because legacy ids end in a content hash, not a sequence.
+    entries.sort(key=lambda r: (r["date"], r["id"][9:13]))
     return info, entries, markers, warnings
 
 

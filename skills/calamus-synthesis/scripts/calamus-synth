@@ -34,6 +34,9 @@ def main(argv):
     except (base.MissingSibling, base.UsageError) as e:
         sys.stderr.write("calamus-synth: %s\n" % e)
         return 2
+    except (OSError, ValueError) as e:
+        sys.stderr.write("calamus-synth: %s\n" % e)
+        return 2
 
 
 if __name__ == "__main__":

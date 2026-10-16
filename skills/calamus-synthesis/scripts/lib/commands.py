@@ -7,6 +7,7 @@ import sys
 
 import base
 import cli  # calamus sibling, on sys.path via base.use_calamus()
+import schema  # calamus sibling
 import analysis
 import embed
 import excerpt
@@ -35,6 +36,8 @@ def cmd_extract(argv):
         sys.stdout.write(text)
         return 0
     os.makedirs(a.out, exist_ok=True)
+    # A new run starts a new draft; an old snapshot would fail fidelity on it.
+    shutil.rmtree(snapshot_dir(root, a.out), ignore_errors=True)
     with open(os.path.join(a.out, "facts.json"), "w", encoding="utf-8") as f:
         f.write(text)
     print(os.path.join(a.out, "facts.json"))
@@ -108,7 +111,12 @@ def cmd_embed(argv):
     ap.add_argument("dir")
     a = ap.parse_args(argv)
     status = 0
+    stems = {j["stem"] for j in schema.load()["journals"].values()}
     for path in _md_files(a.dir):
+        if os.path.splitext(os.path.basename(path))[0] in stems:
+            sys.stderr.write("%s: refusing to modify a journal\n" % os.path.basename(path))
+            status = 2
+            continue
         with open(path, encoding="utf-8") as f:
             text = f.read()
         new, errs = embed.embed(text, a.dir)

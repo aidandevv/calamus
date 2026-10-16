@@ -5,6 +5,12 @@ import os
 import base
 
 MODES = ("full", "focus", "since")
+FACT_KEYS = ("records", "sequence", "candidates")
+REQUIRED = {"phases": ("key", "name", "goal", "first", "last"),
+            "epochs": ("key", "name", "phases", "ended_by"),
+            "pivots": ("id", "rank", "label", "before", "trigger", "after", "rationale", "origin", "sources")}
+STRINGS = {"phases": ("key", "name", "goal", "first", "last"), "epochs": ("key", "name"),
+           "pivots": ("id", "label", "before", "trigger", "after", "rationale", "origin")}
 
 
 def load(path):
@@ -26,8 +32,43 @@ def _objects(a, key, errs):
     return value
 
 
+def _str_list(value):
+    return isinstance(value, list) and all(isinstance(v, str) for v in value)
+
+
+def _shape(a, f):
+    """Required keys and types, checked before any value is hashed or compared."""
+    errs = ["facts.json: missing %s" % k for k in FACT_KEYS if k not in f]
+    for kind, keys in REQUIRED.items():
+        items = a.get(kind)
+        if items is None:
+            errs.append("%s: required" % kind)
+            continue
+        if not isinstance(items, list) or not all(isinstance(v, dict) for v in items):
+            errs.append("%s: must be a list of objects" % kind)
+            continue
+        for n, item in enumerate(items, 1):
+            where = "%s[%d]" % (kind, n)
+            errs += ["%s: %s is required" % (where, k) for k in keys if k not in item]
+            errs += ["%s: %s must be a string" % (where, k) for k in STRINGS[kind]
+                     if k in item and not isinstance(item[k], str)]
+        for n, item in enumerate(items, 1):
+            if kind == "pivots" and "rank" in item and (isinstance(item["rank"], bool)
+                                                        or not isinstance(item["rank"], int)):
+                errs.append("pivots[%d]: rank must be an integer" % n)
+            if kind == "pivots" and "sources" in item and not _str_list(item["sources"]):
+                errs.append("pivots[%d]: sources must be a list of ids" % n)
+            if kind == "epochs" and "phases" in item and not _str_list(item["phases"]):
+                errs.append("epochs[%d]: phases must be a list of phase keys" % n)
+            if kind == "epochs" and item.get("ended_by") is not None and not isinstance(item["ended_by"], str):
+                errs.append("epochs[%d]: ended_by must be an id or null" % n)
+    return errs
+
+
 def validate(a, f):
-    errs = []
+    errs = _shape(a, f)
+    if errs:
+        return errs
     if a.get("version") != 1:
         errs.append("version: must be 1")
     if a.get("mode") not in MODES:

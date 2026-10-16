@@ -1,6 +1,7 @@
 """Verbatim code excerpts with provenance. Refuses paths outside the repository, binaries, and secrets."""
 import ast
 import datetime
+import fnmatch
 import os
 import re
 import subprocess
@@ -82,11 +83,18 @@ def _split(text):
 def _read(root, rev, path):
     if rev == "working-tree":
         full = os.path.join(root, path)
+        if os.path.islink(full) or (os.path.exists(full) and not os.path.isfile(full)):
+            raise Refused("%s is not a regular file" % path)
         if not os.path.isfile(full):
             raise Refused("%s not found in the working tree" % path)
         with open(full, "rb") as f:
             data = f.read()
     else:
+        entry = _git(root, "ls-tree", rev, "--", path).stdout.decode("utf-8", "replace").split()
+        if not entry:
+            raise Refused("%s not found at commit %s" % (path, rev[:7]))
+        if entry[1] != "blob" or entry[0] == "120000":
+            raise Refused("%s is not a regular file at commit %s" % (path, rev[:7]))
         p = _git(root, "show", "%s:%s" % (rev, path))
         if p.returncode != 0:
             raise Refused("%s not found at commit %s" % (path, rev[:7]))
@@ -102,7 +110,11 @@ def _read(root, rev, path):
 def symbol_span(text, path, name):
     lines = _split(text)
     if path.endswith(".py"):
-        for node in ast.walk(ast.parse(text)):
+        try:
+            tree = ast.parse(text)
+        except (SyntaxError, ValueError) as e:
+            raise base.UsageError("cannot parse %s for --symbol (%s); use --lines" % (path, e.__class__.__name__))
+        for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name:
                 return min([node.lineno] + [d.lineno for d in node.decorator_list]), node.end_lineno
         raise base.UsageError("symbol %s not found in %s" % (name, path))
@@ -127,6 +139,14 @@ def symbol_span(text, path, name):
             end -= 1
         return i + 1, end
     raise base.UsageError("symbol %s not found in %s" % (name, path))
+
+
+def _check_secret_file(path, text, style):
+    name = os.path.basename(path)
+    if any(fnmatch.fnmatch(name, pat) for pat in base.items(style, "secret_file")):
+        raise Refused("%s is a key or environment file; excerpt withheld" % path)
+    if any(re.search(m, text) for m in base.items(style, "secret_file_marker")):
+        raise Refused("%s holds a private key; excerpt withheld" % path)
 
 
 def _check_secrets(lines, style):
@@ -192,11 +212,17 @@ def excerpt(root, rec, conf, style, path=None, symbol=None, lines=None, journale
         body = body[next((i for i, l in enumerate(body) if l.startswith("@@")), len(body)):]
         if p.returncode != 0 or not body:
             raise base.UsageError("no change to %s between %s and %s" % (path, base_rev[:7], rev[:7]))
+        try:
+            _check_secret_file(path, _read(root, rev, path), style)
+        except Refused as e:
+            if "withheld" in str(e):
+                raise
         _check_secrets(body, style)
         return _block("%s@%s..%s:diff:max%d" % (path, base_rev, rev, max_lines), rid,
                       "`%s`, changes from `%s` to `%s` [%s]" % (path, base_rev[:7], rev[:7], rid),
                       "diff", _elide(body, max_lines, None))
     text = _read(root, rev, path)
+    _check_secret_file(path, text, style)
     all_lines = _split(text)
     if symbol:
         a, b = symbol_span(text, path, symbol)
