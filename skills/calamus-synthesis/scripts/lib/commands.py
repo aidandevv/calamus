@@ -7,6 +7,7 @@ import sys
 import base
 import cli  # calamus sibling, on sys.path via base.use_calamus()
 import analysis
+import embed
 import excerpt
 import facts
 import mermaid
@@ -88,3 +89,28 @@ def cmd_diagrams(argv):
             fh.write(text)
         print(name)
     return 0
+
+
+def _md_files(d):
+    if not os.path.isdir(d):
+        raise base.UsageError("%s is not a directory" % d)
+    return [os.path.join(d, n) for n in sorted(os.listdir(d)) if n.endswith(".md")]
+
+
+def cmd_embed(argv):
+    ap = argparse.ArgumentParser(prog="calamus-synth embed")
+    ap.add_argument("dir")
+    a = ap.parse_args(argv)
+    status = 0
+    for path in _md_files(a.dir):
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        new, errs = embed.embed(text, a.dir)
+        for n, msg in errs:
+            sys.stderr.write("%s:%d: %s\n" % (os.path.basename(path), n, msg))
+            status = 2
+        if new != text:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(new)
+            print(os.path.basename(path))
+    return status
