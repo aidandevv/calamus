@@ -15,6 +15,7 @@ import fidelity
 import lint
 import mermaid
 import mmdlint
+import render_html
 import voice
 
 DATE_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
@@ -196,3 +197,16 @@ def cmd_check(argv):
             print("%s %s:%d %s: %s" % (kind, name, n, rule, msg))
     print("check: %d failures, %d warnings" % (len(fails), len(warns)))
     return 3 if fails else 0
+
+
+def cmd_render(argv):
+    ap = argparse.ArgumentParser(prog="calamus-synth render")
+    ap.add_argument("dir")
+    ap.add_argument("--html", action="store_true")
+    a = ap.parse_args(argv)
+    if not a.html:
+        raise base.UsageError("render writes HTML only when asked; pass --html")
+    if not os.path.isdir(a.dir):
+        raise base.UsageError("%s is not a directory" % a.dir)
+    print(os.path.basename(render_html.render(a.dir, base.items(base.default_conf("synth.conf"), "mermaid_cdn")[-1])))
+    return 0

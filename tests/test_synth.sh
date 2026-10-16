@@ -69,4 +69,15 @@ printf '# Overview\n\n<!-- diagram: timeline.mmd -->\n' > "$W/overview.md"
 (cd "$R" && "$SYN" check "$W" >/dev/null); assert_eq 0 "$?" "check passes a fresh writeup"
 assert_eq "$before" "$(cat "$R/docs/dev_journal.md" "$R/docs/product_insights.md" | shasum)" "all commands leave journals byte-identical"
 
+# render: HTML only with --html (spec 7.7).
+assert_eq "" "$(ls "$W" | grep '\.html$' || true)" "no HTML before render"
+"$SYN" render "$W" >/dev/null 2>&1; assert_eq 2 "$?" "render without --html is a usage error"
+assert_eq "" "$(ls "$W" | grep '\.html$' || true)" "still no HTML without --html"
+"$SYN" render "$W" --html >/dev/null; assert_eq 0 "$?" "render --html exits 0"
+page="$(cat "$W/diagrams.html")"
+assert_contains "$page" 'class="mermaid"' "page holds mermaid blocks"
+assert_contains "$page" "mermaid@11.4.1" "page pins the Mermaid version"
+assert_contains "$page" "&lt;br/&gt;" "diagram source is HTML-escaped"
+assert_not_contains "$page" "$R" "page has no absolute paths"
+
 finish
