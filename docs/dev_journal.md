@@ -288,3 +288,19 @@
 **Follow-ups:** Execute the 11-task plan; Verify subagent support on Codex and Cursor
 
 ---
+
+### [CP-MILESTONE] | 2026-10-15: Calamus Synthesis Engine and Skill Built
+
+<!-- calamus id:20261015-2114-d5c6 schema:1 variant:lightweight -->
+
+**Summary:** skills/calamus-synthesis now extracts facts and phase candidates, generates and lints Mermaid, excerpts code from the entry's commit, lints prose, checks fidelity, and ships in all three host packages; a real Mermaid 11.4.1 render caught numbered and backtick labels parsing as Markdown, and a fresh review drove a hardening pass.
+
+**Files/Modules Affected:** `skills/calamus-synthesis/scripts/calamus-synth`, `skills/calamus-synthesis/scripts/lib/excerpt.py`, `skills/calamus-synthesis/scripts/lib/mermaid.py`, `skills/calamus-synthesis/SKILL.md`, `skills/calamus/scripts/calamus-install`
+
+**Key Trade-off:** The secret guard now refuses some harmless assignments and whole key or env files; a withheld excerpt is cheaper than a leaked one. Labels lose literal backticks so Mermaid cannot read them as code spans.
+
+**Evidence:** bash tests/run.sh: ALL PASSED (176 Python tests plus shell suites); hostile-label diagrams render to SVG without errors in Mermaid 11.4.1.
+
+**Follow-ups:** Run the skill live over this repository's journals and review phases, pivots, and prose by hand; Verify subagent support on Codex and Cursor; Seven deferred minors from the final review
+
+---
