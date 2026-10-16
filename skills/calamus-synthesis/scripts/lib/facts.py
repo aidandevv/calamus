@@ -10,6 +10,9 @@ import journal  # noqa: E402
 import records  # noqa: E402
 import schema  # noqa: E402
 
+import boundaries  # noqa: E402
+import signals  # noqa: E402
+
 VERSION = 1
 SUPERSESSION = "supersession signal omitted: the entry schema has no supersede or revert field"
 
@@ -125,6 +128,15 @@ def build(root, conf, since=None):
     eng = [s for s in slims if s["journal"] == "engineering"]
     min_entries = int(base.num(conf, "min_entries"))
     seq = eng if len(eng) >= min_entries else slims
+    seq_recs = seq
+    texts = {r["id"]: full_text(r) for r in decisions}
+    sigs = signals.record_signals(slims, texts, conf)
+    cands = []
+    if len(seq_recs) >= min_entries:
+        sigs = signals.boundary_signals(seq_recs, conf) + sigs
+        cands = boundaries.candidates(sigs, seq_recs, conf)
+    else:
+        warnings.append("fewer than %d entries; timeline and gap report only" % min_entries)
     tags = collections.Counter(s["tag"] for s in slims)
     warnings.append(SUPERSESSION)
     return {
@@ -133,8 +145,8 @@ def build(root, conf, since=None):
         "records": slims,
         "sequence": [s["id"] for s in seq],
         "sessions": sessions,
-        "signals": [],
-        "candidates": [],
+        "signals": sigs,
+        "candidates": cands,
         "stats": {
             "entries": {j: sum(1 for s in slims if s["journal"] == j) for j in info},
             "first": slims[0]["date"] if slims else "",
