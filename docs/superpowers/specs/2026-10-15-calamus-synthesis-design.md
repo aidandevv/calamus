@@ -327,9 +327,12 @@ Every label passes through one function, `mermaid.label`, which collapses
 whitespace, truncates at a word boundary to `label_max_chars` (default 48)
 with a trailing ellipsis, and replaces characters that Mermaid treats as
 syntax with decimal entity codes (`"` as `#34;`, `:` as `#58;` in timeline
-events, `;` as `#59;`, `#` as `#35;`, backtick as `#96;`, and `<`, `>`
-as `#60;`, `#62;`). Flowchart and mind-map labels are always quoted
-(`n1["..."]`).
+events, `;` as `#59;`, `#` as `#35;`, and `<`, `>` as `#60;`, `#62;`).
+Mermaid decodes entities before it applies Markdown to flowchart labels,
+so Markdown is defused in the text itself: a backtick becomes an
+apostrophe, and a leading list or heading marker (`1.`, `-`, `#`) is
+followed by a no-break space instead of a space. Flowchart and mind-map
+labels are always quoted (`n1["..."]`).
 
 ### 7.3 Size caps
 

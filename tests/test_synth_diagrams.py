@@ -93,6 +93,15 @@ class LabelTests(unittest.TestCase):
         self.assertIn("#58;", mermaid.label("a: b", 10, timeline=True))
         self.assertNotIn("#58;", mermaid.label("a: b", 10))
 
+    def test_neutralizes_markdown_block_starts(self):
+        # Mermaid decodes entities, then runs Markdown on flowchart labels:
+        # list markers, headings, and backticks render as "Unsupported markdown".
+        for text in ("1. First", "2) Second", "- dash", "* star", "+ plus", "# heading"):
+            out = mermaid.label(text, 48).replace("#35;", "#")
+            self.assertNotRegex(out, r"^([-*+#]|\d+[.)])[ \t]", text)
+        self.assertNotIn("#96;", mermaid.label("a `tick` b", 48))
+        self.assertNotIn("`", mermaid.label("a `tick` b", 48))
+
     def test_truncates_at_word_boundary(self):
         out = mermaid.label("alpha beta gamma delta", 12)
         self.assertEqual(out, "alpha beta…")
@@ -134,6 +143,11 @@ class GenerateTests(unittest.TestCase):
                 inner = line.replace('["', "").replace('"]', "").replace('("', "").replace('")', "")
                 inner = inner.replace('|"', "").replace('"|', "")
                 self.assertNotIn('"', inner, (name, line))
+
+    def test_pivot_titles_are_not_numbered_lists(self):
+        f, a = build()
+        text = mermaid.generate(f, a, CONF)["pivots.mmd"]
+        self.assertIn('subgraph n1["Pivot 1: Move to the web"]', text)
 
     def test_node_cap_collapses_epochs(self):
         f, a = build()

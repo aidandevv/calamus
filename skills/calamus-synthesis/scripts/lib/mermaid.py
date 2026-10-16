@@ -1,14 +1,20 @@
 """Generate Mermaid diagrams from facts.json and analysis.json. Same inputs, same bytes."""
 import collections
+import re
 
 import base
 
-ENTITIES = {'"': "#34;", ";": "#59;", "#": "#35;", "`": "#96;", "<": "#60;", ">": "#62;"}
+ENTITIES = {'"': "#34;", ";": "#59;", "#": "#35;", "<": "#60;", ">": "#62;"}
+# Mermaid decodes entities before its Markdown pass, so Markdown starts are
+# defused in the text itself: a no-break space after a list or heading
+# marker, and an apostrophe for a backtick.
+BLOCK_START = re.compile(r"^([-*+#]|\d+[.)]) ")
 
 
 def label(text, max_chars, timeline=False):
-    """Collapse, truncate at a word boundary, and entity-escape Mermaid syntax characters."""
-    text = " ".join(str(text).split())
+    """Collapse, truncate at a word boundary, defuse Markdown, and entity-escape Mermaid syntax."""
+    text = " ".join(str(text).split()).replace("`", "'")
+    text = BLOCK_START.sub("\\1\u00a0", text)
     if len(text) > max_chars:
         cut = text[:max_chars - 1]
         text = (cut.rsplit(" ", 1)[0] if " " in cut else cut) + "…"
@@ -122,7 +128,7 @@ def pivots(f, a, conf):
              "    accDescr: %d pivots ranked by effect on later work." % len(ps)]
     for p in ps:
         s, b, t = nid(), nid(), nid()
-        lines.append('    subgraph %s["%s"]' % (s, label("%d. %s" % (p["rank"], p.get("label") or p["id"]), maxc)))
+        lines.append('    subgraph %s["%s"]' % (s, label("Pivot %d: %s" % (p["rank"], p.get("label") or p["id"]), maxc)))
         lines.append('        %s["%s"]' % (b, label("Before: " + p.get("before", ""), maxc)))
         lines.append('        %s["%s"]' % (t, label("After: " + p.get("after", ""), maxc)))
         lines.append('        %s -->|"%s"| %s' % (b, label(p.get("trigger") or "change", maxc), t))
