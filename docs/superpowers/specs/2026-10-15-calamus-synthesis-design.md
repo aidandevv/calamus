@@ -454,15 +454,18 @@ whitespace are refused.
 
 ### 8.4 Guards
 
-Exit 4 refuses an excerpt when the path is absolute, contains `..`, or
-leaves the repository; the path does not exist at the commit or is not a
+Exit 4 refuses an excerpt when the path is absolute, contains `..`, uses
+glob or pathspec syntax (Git always receives paths literally), or leaves
+the repository; the path does not exist at the commit or is not a
 regular file there (a directory or a symlink); the content is binary; the
 file name matches a key or environment file (`*.pem`, `*.key`, `id_rsa*`,
 `.env*`, and others in `assets/style.conf`); the file contains a private-key
 header anywhere; or a selected line matches a secret pattern (common cloud
 and forge token prefixes, and quoted or unquoted assignments to names
 containing key, secret, token, or password). The refusal message names the
-rule and never prints the matching line.
+rule and never prints the matching line. A `--diff` applies the
+file-name check first, requires a regular file (or none) at both commits,
+and checks both commits' content for a private-key header.
 
 ### 8.5 Verification
 

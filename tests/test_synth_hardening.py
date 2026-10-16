@@ -168,6 +168,36 @@ class SecretAndFileGuardTests(Repo):
         self.assertIn("def parse(text):", out)
 
 
+class DiffGuardTests(Repo):
+    """Security review: --diff must not bypass file-name, regular-file, or literal-path checks."""
+
+    def setUp(self):
+        super().setUp()
+        commit(self.root, {".env": "DB_URL=postgres://app:pw@db/app\n", "core/a.yml": "x: 1\n",
+                           "core/b.yml": "y: 2\n"}, "2026-01-05T09:00:00")
+        commit(self.root, {".env": None, "core/a.yml": "x: 2\n", "core/b.yml": "y: 3\n"},
+               "2026-01-05T09:10:00")
+
+    def refused(self, path):
+        with self.assertRaises(excerpt.Refused, msg=path):
+            excerpt.excerpt(self.root, E1, CONF, STYLE, path=path, diff=True, at="HEAD")
+
+    def test_deleted_secret_file_is_refused(self):
+        self.refused(".env")
+
+    def test_glob_and_pathspec_magic_are_refused(self):
+        for path in ("core/*.yml", "core/?.yml", "core/[ab].yml", ":(glob)core/*.yml", ":/core/a.yml"):
+            self.refused(path)
+
+    def test_directory_diff_is_refused(self):
+        self.refused("core")
+
+    def test_single_file_diff_still_works(self):
+        out = excerpt.excerpt(self.root, E1, CONF, STYLE, path="core/a.yml", diff=True, at="HEAD")
+        self.assertIn("+x: 2", out)
+        self.assertNotIn("y: 3", out)
+
+
 class LegacyOrderTests(unittest.TestCase):
     """Important 5: same-day legacy entries keep journal order."""
 

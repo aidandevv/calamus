@@ -27,7 +27,8 @@ class Refused(Exception):
 
 def _git(root, *args):
     try:
-        return subprocess.run(["git", "-C", root] + list(args), capture_output=True, timeout=30)
+        # Literal pathspecs: a path is a file name, never a glob or ":(magic)".
+        return subprocess.run(["git", "-C", root, "--literal-pathspecs"] + list(args), capture_output=True, timeout=30)
     except (OSError, subprocess.SubprocessError) as e:
         raise base.UsageError("git failed: %s" % e)
 
@@ -46,6 +47,8 @@ def safe_path(root, path):
     if (not norm or os.path.isabs(norm) or norm.startswith("~") or re.match(r"^[A-Za-z]:", norm)
             or ".." in norm.split("/") or re.search(r"\s", norm)):
         raise Refused("path must be repository-relative, without '..' or whitespace")
+    if norm.startswith(":") or re.search(r"[*?\[\]]", norm):
+        raise Refused("path must name one file literally, without glob or pathspec syntax")
     real_root = os.path.realpath(root)
     if not os.path.realpath(os.path.join(real_root, norm)).startswith(real_root + os.sep):
         raise Refused("path leaves the repository")
@@ -141,12 +144,29 @@ def symbol_span(text, path, name):
     raise base.UsageError("symbol %s not found in %s" % (name, path))
 
 
-def _check_secret_file(path, text, style):
-    name = os.path.basename(path)
-    if any(fnmatch.fnmatch(name, pat) for pat in base.items(style, "secret_file")):
+def _check_secret_name(path, style):
+    if any(fnmatch.fnmatch(os.path.basename(path), pat) for pat in base.items(style, "secret_file")):
         raise Refused("%s is a key or environment file; excerpt withheld" % path)
+
+
+def _check_secret_marker(path, text, style):
     if any(re.search(m, text) for m in base.items(style, "secret_file_marker")):
         raise Refused("%s holds a private key; excerpt withheld" % path)
+
+
+def _check_secret_file(path, text, style):
+    _check_secret_name(path, style)
+    _check_secret_marker(path, text, style)
+
+
+def _blob_or_absent(root, rev, path):
+    """True for a regular file at rev, False when absent; refuses trees and symlinks."""
+    entry = _git(root, "ls-tree", rev, "--", path).stdout.decode("utf-8", "replace").split()
+    if not entry:
+        return False
+    if entry[1] != "blob" or entry[0] == "120000":
+        raise Refused("%s is not a regular file at commit %s" % (path, rev[:7]))
+    return True
 
 
 def _check_secrets(lines, style):
@@ -203,7 +223,13 @@ def excerpt(root, rec, conf, style, path=None, symbol=None, lines=None, journale
     else:
         rev = "working-tree"
     if diff:
+        _check_secret_name(path, style)
         base_rev = _rev(root, frm or rev + "^")
+        present = [r for r in (base_rev, rev) if _blob_or_absent(root, r, path)]
+        if not present:
+            raise Refused("%s not found at commit %s or %s" % (path, base_rev[:7], rev[:7]))
+        for r in present:
+            _check_secret_marker(path, _read(root, r, path), style)
         p = _git(root, "diff", "--no-color", "--no-ext-diff", base_rev, rev, "--", path)
         text = p.stdout.decode("utf-8", "replace")
         if b"\0" in p.stdout or "Binary files" in text:
@@ -212,11 +238,7 @@ def excerpt(root, rec, conf, style, path=None, symbol=None, lines=None, journale
         body = body[next((i for i, l in enumerate(body) if l.startswith("@@")), len(body)):]
         if p.returncode != 0 or not body:
             raise base.UsageError("no change to %s between %s and %s" % (path, base_rev[:7], rev[:7]))
-        try:
-            _check_secret_file(path, _read(root, rev, path), style)
-        except Refused as e:
-            if "withheld" in str(e):
-                raise
+        _check_secret_marker(path, "\n".join(body), style)
         _check_secrets(body, style)
         return _block("%s@%s..%s:diff:max%d" % (path, base_rev, rev, max_lines), rid,
                       "`%s`, changes from `%s` to `%s` [%s]" % (path, base_rev[:7], rev[:7], rid),
