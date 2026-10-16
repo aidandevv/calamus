@@ -11,6 +11,7 @@ import records  # noqa: E402
 import schema  # noqa: E402
 
 import boundaries  # noqa: E402
+import excerpt  # noqa: E402
 import signals  # noqa: E402
 
 VERSION = 1
@@ -120,6 +121,19 @@ def build(root, conf, since=None):
                 s["crosslog"] = target
             else:
                 warnings.append("unmatched cross-log on %s" % s["id"])
+    if excerpt.is_repo(root):
+        grace = base.num(conf, "excerpt_grace_hours")
+        for s in slims:
+            when = base.entry_time(s["id"], s["date"], s["legacy"])
+            refs = []
+            for p in s["files"]:
+                try:
+                    p = excerpt.safe_path(root, p)
+                except excerpt.Refused:
+                    continue
+                found = excerpt.resolve_commit(root, p, when, grace)
+                refs.append(dict(path=p, **found) if found else {"path": p, "missing": True})
+            s["code_refs"] = refs
     sessions = [{"when": m["when"], "kind": m["kind"], "note": m.get("note", "")}
                 for m in markers if m["kind"] in ("session", "resume", "compact") and m.get("when")]
     sessions += [{"when": r["date"], "kind": "snapshot", "note": r["id"]}
