@@ -272,3 +272,19 @@
 **Follow-ups:** Capture one real Cursor stream-json transcript and replace the doc-derived fixture; Decide whether to set CALAMUS_CURSOR_MODEL now that --model is documented; Revisit the disabled Cursor backend: --model exists but tools still cannot be disabled
 
 ---
+
+### [CP-ARCHITECTURE] | 2026-10-15: Synthesis Excerpts Come From the Entry's Commit
+
+<!-- calamus id:20261015-1908-5247 schema:1 variant:lightweight -->
+
+**Summary:** The calamus-synthesis spec now shows code only as verbatim excerpts resolved to the latest commit touching the path by the entry's time plus a 12-hour grace, re-extracted on every check; prose quality rests on craft rules and an advisory lint, and diagrams are escaped, capped, embedded, and linted.
+
+**Files/Modules Affected:** `docs/superpowers/specs/2026-10-15-calamus-synthesis-design.md`, `docs/superpowers/plans/2026-10-15-calamus-synthesis.md`
+
+**Key Trade-off:** Grace-window commit resolution can pick a slightly later commit than the decision; accepted because entries carry no commit hash and the caption names the commit. Lint stays advisory so prose is not fitted to numbers.
+
+**Evidence:** Not yet verified. Prototype confirmed planted boundaries at positions 8 and 16 and a clean lint passage with zero findings; the engine itself is not built yet.
+
+**Follow-ups:** Execute the 11-task plan; Verify subagent support on Codex and Cursor
+
+---
