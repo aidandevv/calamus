@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+"""Recall journal records without reading whole files.
+
+Usage: calamus-query [--journal engineering|product|both] [--last N] [--tag T]
+                     [--since YYYY-MM-DD] [--file PATH] [--id ID]
+                     [--type entry|marker] [--brief] [--out md|xml|jsonl] [--root DIR]
+
+--brief prints one line per record; fetch full text with --id.
+"""
+import argparse
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "lib"))
+import cli  # noqa: E402
+import journal  # noqa: E402
+import records  # noqa: E402
+import render  # noqa: E402
+import schema  # noqa: E402
+
+
+def files_of(rec):
+    out = list(rec.get("files") or []) + list((rec.get("impl") or {}).get("files") or [])
+    return out
+
+
+def rec_date(rec):
+    return rec.get("date") or (rec.get("when") or "")[:10]
+
+
+def matches(rec, args):
+    if rec["record"] != args.type:
+        return False
+    if args.id and rec.get("id") != args.id:
+        return False
+    if args.tag and rec.get("tag") != args.tag.strip("[]"):
+        return False
+    if args.since and rec_date(rec) < args.since:
+        return False
+    if args.file:
+        hay = files_of(rec) + ([rec.get("raw", "")] if rec.get("legacy") else [])
+        if not any(args.file in h for h in hay):
+            return False
+    return True
+
+
+def brief(rec, jname):
+    if rec["record"] == "marker":
+        detail = " ".join("%s=%s" % (k, v) for k, v in rec.items() if k not in ("record", "kind"))
+        return "%-11s marker:%s %s" % (jname, rec["kind"], detail)
+    flag = " (legacy)" if rec.get("legacy") else ""
+    return "%s  %-11s [%s] %s: %s%s" % (rec["id"], jname, rec["tag"], rec["date"], rec["title"], flag)
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Query Calamus journals.")
+    ap.add_argument("--journal", default="both", choices=["engineering", "product", "both"])
+    ap.add_argument("--last", type=int)
+    ap.add_argument("--tag")
+    ap.add_argument("--since")
+    ap.add_argument("--file")
+    ap.add_argument("--id")
+    ap.add_argument("--type", default="entry", choices=["entry", "marker"])
+    ap.add_argument("--brief", action="store_true")
+    ap.add_argument("--out", choices=["md", "xml", "jsonl"])
+    ap.add_argument("--root")
+    args = ap.parse_args()
+    root = cli.project_root(args.root)
+    hits = []
+    for jname in cli.journals_arg(args.journal):
+        path, fmt, warning = journal.resolve(root, jname, os.environ.get("CALAMUS_FORMAT"))
+        if warning:
+            sys.stderr.write("calamus-query: %s\n" % warning)
+        if not os.path.exists(path):
+            continue
+        try:
+            recs = records.parse(path)
+        except (ValueError, OSError) as e:
+            cli.die("cannot read %s: %s" % (os.path.relpath(path, root), e))
+        hits += [(jname, fmt, r) for r in recs if matches(r, args)]
+    if len(cli.journals_arg(args.journal)) > 1:
+        hits.sort(key=lambda h: rec_date(h[2]))
+    if args.last:
+        hits = hits[-args.last:]
+    if not hits:
+        sys.stderr.write("no matching records\n")
+        return
+    out = []
+    for jname, fmt, rec in hits:
+        if args.brief:
+            out.append(brief(rec, jname) + "\n")
+        else:
+            ofmt = args.out or fmt
+            out.append(render.render(schema.normalize(rec), ofmt, ext=fmt))
+    sys.stdout.write(("\n" if not args.brief and (args.out or hits[0][1]) == "md" else "").join(out))
+
+
+if __name__ == "__main__":
+    main()

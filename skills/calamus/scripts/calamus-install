@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+# Install the calamus skills (calamus, calamus-synthesis) for one host and print the config to merge.
+#   calamus-install --host <claude-code|codex|cursor> [--copy]
+# Symlinks (or with --copy, copies) the skill into the host's skills
+# directory, then prints the hooks config and the adapter text. It never
+# edits a settings file and refuses to overwrite an existing install.
+set -eu
+
+usage() { echo "usage: calamus-install --host <claude-code|codex|cursor> [--copy]" >&2; exit 2; }
+
+host=""; copy=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --host) host="${2:-}"; shift 2 || usage ;;
+    --copy) copy=1; shift ;;
+    *) usage ;;
+  esac
+done
+
+src="$(cd "$(dirname "$0")/.." && pwd -P)"
+synth_src="$(dirname "$src")/calamus-synthesis"
+case "$host" in
+  claude-code) dest="$HOME/.claude/skills/calamus"
+    settings="~/.claude/settings.json (all projects) or .claude/settings.json (one project)"
+    adapter_to="~/.claude/CLAUDE.md or ./CLAUDE.md" ;;
+  codex) dest="$HOME/.agents/skills/calamus"
+    settings="~/.codex/hooks.json, or .codex/hooks.json in a trusted project"
+    adapter_to="~/.codex/AGENTS.md or ./AGENTS.md" ;;
+  cursor) dest="$HOME/.agents/skills/calamus"
+    settings="~/.cursor/hooks.json or .cursor/hooks.json"
+    adapter_to="./AGENTS.md or a Cursor rule" ;;
+  *) usage ;;
+esac
+
+# Warn about existing registrations first: Cursor also runs hooks from the
+# Claude settings files, and the plugin registers its own hooks.
+found=""
+for f in "~/.claude/settings.json" .claude/settings.json .claude/settings.local.json \
+  "~/.cursor/hooks.json" .cursor/hooks.json "~/.codex/hooks.json" .codex/hooks.json; do
+  p="$f"; case "$f" in "~/"*) p="$HOME/${f#\~/}" ;; esac
+  if [ -f "$p" ] && grep -qE 'hook\.sh --host [a-z-]+ --event' "$p" 2>/dev/null; then
+    found="$found  - $f
+"
+  fi
+done
+if [ -f "$HOME/.claude/plugins/installed_plugins.json" ] &&
+  grep -q '"calamus@calamus"' "$HOME/.claude/plugins/installed_plugins.json" 2>/dev/null; then
+  found="$found  - the calamus Claude Code plugin is installed
+"
+fi
+if [ -n "$found" ]; then
+  echo "Warning: Calamus hooks are already registered in:"
+  printf '%s' "$found"
+  echo "Register each event once; a duplicate runs twice except within the dedupe window."
+  echo
+fi
+
+synth_dest="$(dirname "$dest")/calamus-synthesis"
+for d in "$dest" "$synth_dest"; do
+  if [ -e "$d" ] || [ -L "$d" ]; then
+    echo "refusing to overwrite existing $d; remove it first to reinstall" >&2
+    exit 1
+  fi
+done
+mkdir -p "$(dirname "$dest")"
+if [ "$copy" -eq 1 ]; then
+  cp -R "$src" "$dest"
+  echo "Copied skill to $dest"
+  if [ -d "$synth_src" ]; then cp -R "$synth_src" "$synth_dest"; echo "Copied beta skill to $synth_dest"; fi
+else
+  ln -s "$src" "$dest"
+  echo "Linked $dest -> $src"
+  if [ -d "$synth_src" ]; then ln -s "$synth_src" "$synth_dest"; echo "Linked beta skill $synth_dest -> $synth_src"; fi
+fi
+[ -d "$synth_src" ] || echo "Note: calamus-synthesis not found beside calamus; installed calamus only."
+
+repo="$(cd "$src/../.." && pwd -P)"
+pkg="$repo/packaging/$host"
+squote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
+if [ -d "$pkg" ]; then
+  echo
+  case "$host" in
+    claude-code)
+      echo "── Recommended: install the Claude Code plugin instead ──"
+      echo "  claude plugin marketplace add $(squote "$repo")"
+      echo "  claude plugin install calamus@calamus"
+      echo "The plugin registers its own hooks." ;;
+    codex)
+      echo "── Alternative: the Codex plugin package ──"
+      echo "  $pkg"
+      echo "Add it to a Codex plugin marketplace (see the README). Its bundled hooks"
+      echo "still need review and trust in /hooks before they run." ;;
+    cursor)
+      echo "── Alternative: the Cursor plugin ──"
+      echo "  mkdir -p ~/.cursor/plugins/local && ln -s $(squote "$pkg") ~/.cursor/plugins/local/calamus"
+      echo "Then restart Cursor. Plugin hooks run only in a trusted workspace." ;;
+  esac
+  echo "If you use the plugin, remove $dest"
+  echo "and do not also merge the hooks below: each event would run twice."
+fi
+
+echo
+echo "── Hooks: merge into $settings ──"
+python3 - "$src/assets/hosts/$host/hooks.json" "$dest" <<'PY'
+import json, shlex, sys
+path, dest = sys.argv[1], sys.argv[2]
+hook = shlex.quote(dest + "/scripts/hook.sh")
+with open(path) as f:
+    text = f.read()
+data = json.loads(text)
+def walk(node):
+    if isinstance(node, dict):
+        return {k: (v.replace("__CALAMUS_DIR__/scripts/hook.sh", hook) if k == "command" else walk(v))
+                for k, v in node.items()}
+    if isinstance(node, list):
+        return [walk(v) for v in node]
+    return node
+print(json.dumps(walk(data), indent=2))
+PY
+
+echo
+echo "── Adapter: paste into $adapter_to ──"
+cat "$src/assets/adapter.md"
+
+echo
+case "$host" in
+  claude-code)
+    echo "Note: SessionEnd hooks get 1.5 s by default; the 60 s timeout above raises that budget to its 60 s maximum." ;;
+  codex)
+    echo "Note: Codex runs no hook until you review and trust it with /hooks; a changed hook needs review again."
+    echo "Note: project-local hooks load only from a trusted .codex/ layer."
+    echo "Note: Codex gives SessionEnd 1 s by default and 3 s at most; the 3 s above is that maximum." ;;
+  cursor)
+    echo "Note: Cursor documents no default or maximum hook timeout; the values above are Calamus settings."
+    echo "Note: Cursor also imports hooks from .claude/settings.json, .claude/settings.local.json, and"
+    echo "      ~/.claude/settings.json. Use one registration, not both." ;;
+esac
+echo "Note: add .calamus/ to each project's .gitignore; it holds hook state and logs."

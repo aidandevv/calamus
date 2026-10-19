@@ -1,9 +1,11 @@
-# Journal system runtime files — generated, not committed
+# Calamus runtime state and generated reports — not committed
 docs/eval_report.md
-.claude/logs/
-.codex/logs/
-/tmp/codex-journal-*.cache
+.calamus/
 handoff.md
 
 # OS cruft
 .DS_Store
+
+# Python bytecode
+__pycache__/
+*.pyc

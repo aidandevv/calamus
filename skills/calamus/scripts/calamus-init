@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+"""Create both Calamus journals in ./docs of the current project.
+
+Usage: calamus-init [--format md|xml|jsonl|human|model] [--root DIR]
+"""
+import argparse
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "lib"))
+import cli  # noqa: E402
+import journal  # noqa: E402
+import render  # noqa: E402
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Create both Calamus journals.")
+    ap.add_argument("--format", default=os.environ.get("CALAMUS_FORMAT", "md"))
+    ap.add_argument("--root")
+    args = ap.parse_args()
+    fmt_env = journal.canonical_format(args.format)
+    if not fmt_env:
+        cli.die("unknown format %r; use md, xml, or jsonl" % args.format, 2)
+    root = cli.project_root(args.root)
+    for name in ("engineering", "product"):
+        path, fmt, warning = journal.resolve(root, name, fmt_env)
+        rel = os.path.relpath(path, root)
+        if warning:
+            print("! %s" % warning)
+        if os.path.exists(path):
+            print("→ %s already exists" % rel)
+            continue
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "x", encoding="utf-8") as f:
+            f.write(render.header(name, fmt))
+        print("✓ %s" % rel)
+    print("")
+    print("Journals ready in %s/docs/." % os.path.basename(root))
+    print("Add .calamus/ to .gitignore; it holds hook state and logs.")
+
+
+if __name__ == "__main__":
+    main()

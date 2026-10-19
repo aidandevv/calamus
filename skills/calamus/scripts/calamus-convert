@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""Write a journal in another format next to the original. Never overwrites.
+
+Usage: calamus-convert --to md|xml|jsonl [--journal engineering|product|both] [--root DIR]
+
+Conversion from md is lossy for hand-written entries: their unrecognized
+text moves into a body field.
+"""
+import argparse
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "lib"))
+import cli  # noqa: E402
+import journal  # noqa: E402
+import records  # noqa: E402
+import render  # noqa: E402
+import schema  # noqa: E402
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Convert Calamus journals to another format.")
+    ap.add_argument("--to", required=True)
+    ap.add_argument("--journal", default="both", choices=["engineering", "product", "both"])
+    ap.add_argument("--root")
+    args = ap.parse_args()
+    target = journal.canonical_format(args.to)
+    if not target:
+        cli.die("unknown format %r; use md, xml, or jsonl" % args.to, 2)
+    root = cli.project_root(args.root)
+    status = 0
+    for jname in cli.journals_arg(args.journal):
+        src, fmt, _ = journal.resolve(root, jname, os.environ.get("CALAMUS_FORMAT"))
+        if not os.path.exists(src):
+            print("→ no %s journal; skipped" % jname)
+            continue
+        if fmt == target:
+            print("→ %s is already %s" % (os.path.relpath(src, root), target))
+            continue
+        dst = os.path.splitext(src)[0] + "." + target
+        if os.path.exists(dst):
+            sys.stderr.write("refusing to overwrite %s\n" % os.path.relpath(dst, root))
+            status = 1
+            continue
+        recs = [schema.normalize(r) for r in records.parse(src)]
+        body = [render.render(r, target, ext=target) for r in recs]
+        text = render.header(jname, target) + ("\n" + "\n".join(body) if target == "md" and body else "".join(body))
+        with open(dst, "x", encoding="utf-8") as f:
+            f.write(text)
+        print("✓ %s (%d records)" % (os.path.relpath(dst, root), len(recs)))
+    if status == 0:
+        print("Originals were not changed. Move them aside once you have checked the new files;")
+        print("while both exist, CALAMUS_FORMAT picks which one hooks and commands use.")
+    sys.exit(status)
+
+
+if __name__ == "__main__":
+    main()

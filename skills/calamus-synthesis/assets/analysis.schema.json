@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "calamus-synthesis analysis.json",
+  "description": "Written by the analyst. calamus-synth diagrams also checks ids against facts.json, phase order, and the analyst-added rule.",
+  "type": "object",
+  "required": ["version", "mode", "phases", "epochs", "pivots"],
+  "properties": {
+    "version": {"const": 1},
+    "mode": {"enum": ["full", "focus", "since"]},
+    "phases": {
+      "type": "array",
+      "items": {"type": "object", "required": ["key", "name", "goal", "first", "last"]}
+    },
+    "epochs": {
+      "type": "array",
+      "items": {"type": "object", "required": ["key", "name", "phases", "ended_by"]}
+    },
+    "pivots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "rank", "label", "before", "trigger", "after", "rationale", "origin", "sources"],
+        "properties": {"origin": {"enum": ["engine", "analyst-added"]}, "rank": {"type": "integer", "minimum": 1}}
+      }
+    }
+  }
+}

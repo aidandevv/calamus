@@ -1,85 +1,248 @@
-# agent-skills-garden
+# Calamus
 
-A personal collection of reusable agent skills built on the Agent Skills open
-standard. Each top-level folder is self-contained and droppable into any
-project or global skill directory.
+An agent can finish a session with working code and still lose why a decision
+was made. Calamus keeps that reasoning in the project, where the next session
+and the people working on it can find it.
+
+The core skill maintains two append-only journals. The **engineering journal**
+(`docs/dev_journal.md`) records decisions, pivots, constraints, debugging
+lessons, and verified milestones. The **product insight journal**
+(`docs/product_insights.md`) records user problems, UX friction, positioning,
+and roadmap choices. Agents can query relevant entries instead of loading the
+whole history. Optional hooks capture checkpoints at compaction, turn, and
+session boundaries, when useful context is most likely to be lost.
+
+The beta synthesis skill turns those records into a project overview, decision
+log, phase history, or insight writeup. It can add Mermaid diagrams and code
+excerpts from the commit associated with a journal entry, while leaving the
+journals untouched.
+
+| Skill | Tier | Role |
+|---|---|---|
+| `calamus` | core | Records and recalls decisions and insights; registers optional capture hooks |
+| `calamus-synthesis` | beta | Builds cited writeups from the journals |
+
+The core has no dependency on the beta skill. Synthesis uses the core's
+parser, ships beside it in every package, and may change its commands and
+output formats between releases.
+
+Both install on **Claude Code**, **Codex CLI**, and **Cursor** from one
+source, and any runtime that can run a shell command can drive them.
 
 ---
 
-## Skills in This Garden
+## What's Here
 
-Each top-level folder is its own self-contained skill module. Modules do not
-need to be related to each other; future research, workflow, or domain-specific
-skills can sit next to `journaling/` without sharing its hooks, docs, adapters,
-or purpose.
-
-| Module | Status | Role |
-|---|---|---|
-| [`journaling/`](./journaling/) | ✅ v2.0 | Live project memory for design, engineering, and product reasoning |
-
-### Module: [`journaling/`](./journaling/)
-
-> A zero-effort way to preserve design, engineering, and product reasoning as
-> work happens. The journaling skill gives agents a continuous live document
-> they can write to during long sessions, so architecture decisions,
-> implementation trade-offs, debugging lessons, and product insights are easy
-> to recover later for write-ups, mock-ups, product pitches, retrospectives,
-> and portfolio stories.
-
-**What it creates:** `docs/dev_journal.md` and `docs/product_insights.md`
-
-**Best for:** remembering why choices were made, not just what changed.
-
-**Internal skills:**
-
-> **[`engineering-journal`](./journaling/skills/engineering-journal/SKILL.md)**
-> writes to `docs/dev_journal.md` and captures architecture decisions,
-> implementation pivots, debugging lessons, constraints, verification results,
-> and engineering milestones.
-
-> **[`product-insight-journal`](./journaling/skills/product-insight-journal/SKILL.md)**
-> writes to `docs/product_insights.md` and captures user pain, UX friction,
-> product hypotheses, positioning notes, roadmap trade-offs, trust risks, and
-> growth or retention signals.
-
-```mermaid
-flowchart LR
-  Garden["agent-skills-garden"] --> Journaling["journaling/<br/>live project memory"]
-  Garden --> Future["future skill modules<br/>independent folders"]
-
-  Journaling --> Skills["skills/<br/>procedures"]
-  Journaling --> Hooks["hooks/<br/>lifecycle automation"]
-  Journaling --> Adapters["adapters/<br/>tool config"]
-  Journaling --> Evals["evals/<br/>quality checks"]
-  Journaling --> Docs["docs/<br/>examples"]
-
-  Skills --> EngSkill["engineering-journal"]
-  Skills --> ProductSkill["product-insight-journal"]
+```
+skills/calamus/                core: the journaling skill
+  SKILL.md                     router: which journal, how to write, how to recall
+  references/                  per-journal procedures and schemas (loaded on demand)
+  scripts/                     calamus-init | -append | -query | -convert | -install, hook.sh
+  scripts/lib/                 schema, renderers, parser, extractor, config, gates
+  scripts/backends/            claude | codex | cursor | generic
+  scripts/prompts/             snapshot, sweep, and eval-gate prompts for the hooks
+  assets/                      calamus.env (all model pins), profiles/, schema/, hosts/, adapter.md
+  evals/                       rubric, Level 2 scorer, Level 4 plan, activation experiment
+skills/calamus-synthesis/      beta: read-only writeups from the journals
+  SKILL.md                     router: pick a mode, run the steps, follow the rules
+  references/                  analyst procedure, output contracts, white paper, style, voice
+  agents/journal-analyst.md    brief for an optional analysis subagent
+  scripts/calamus-synth        extract | diagrams | excerpt | embed | snapshot | check | render
+  scripts/lib/                 signals, candidates, excerpts, Mermaid, lint, fidelity
+  assets/                      synth.conf, style.conf, JSON schemas, voice template
+packaging/                     per-host plugin wrappers: manifests + hooks, both skills linked from skills/
+.claude-plugin/                marketplace for the Claude Code plugin
+docs/                          design rationale, specs, host facts, and this repo's own journals
+tests/run.sh                   offline test suite for both skills
 ```
 
 ---
 
-## How to Use These Skills
+## Install
 
-**Drop into a project:**
-Copy the folder (e.g. `journaling/`) to your project root or to
-`~/.claude/skills/` / `~/.codex/skills/`. Run the `scripts/` init script.
-Follow the `adapters/` instructions for your tool.
+For Claude Code, install the plugin from a clone of this repository. The
+plugin includes both skills and registers the core's hooks:
 
-**Reference from this repo:**
-Point your CLAUDE.md or AGENTS.md at the skill path in this repo. Useful
-during active development of a skill before it's been promoted to your
-global install.
+```bash
+claude plugin marketplace add /path/to/this/repo
+claude plugin install calamus@calamus
+```
 
-**Tool compatibility:**
-All SKILL.md files follow the Agent Skills open standard (released by
-Anthropic December 18, 2025, subsequently adopted by OpenAI Codex CLI,
-Google Gemini CLI, GitHub Copilot, and Cursor). They work without
-modification across all compliant runtimes. Hooks and adapters are
-tool-specific and live in separate files.
+Codex and Cursor packages are in `packaging/codex` and `packaging/cursor`.
+Their layouts follow each host's plugin docs; neither has been tested live
+(see [docs/host-facts.md](docs/host-facts.md)):
+
+- **Codex:** add `packaging/codex` to a Codex plugin marketplace. Its hooks
+  still run only after you review and trust them in `/hooks`.
+- **Cursor:** `ln -s "$PWD/packaging/cursor" ~/.cursor/plugins/local/calamus`,
+  then restart Cursor. Plugin hooks run only in a trusted workspace.
+
+To install the skills without a plugin and manage hook registration yourself:
+
+```bash
+skills/calamus/scripts/calamus-install --host claude-code   # or codex, cursor
+```
+
+The installer links both skills into the host's skills directory
+(`~/.claude/skills/` for Claude Code, `~/.agents/skills/` for Codex and
+Cursor; `--copy` copies instead), with `calamus-synthesis` beside `calamus`
+so it can find the core's parser. It prints the hook configuration to merge
+and the adapter text to paste into `CLAUDE.md` or `AGENTS.md`. It does not
+edit settings or overwrite an existing install. If plugin hooks are already
+registered, the installer warns before you add another registration.
+
+In each project, with `CALAMUS` set to the skill directory (the clone's
+`skills/calamus`, or the raw install's `~/.claude/skills/calamus`):
+
+```bash
+"$CALAMUS/scripts/calamus-init"                          # docs/dev_journal.md + docs/product_insights.md
+echo ".calamus/" >> .gitignore                           # hook state and logs
+```
+
+Hooks are optional. Without them, the agent writes entries when the adapter
+calls for a checkpoint.
+
+### Host matrix
+
+| Event | Claude Code | Codex CLI | Cursor |
+|---|---|---|---|
+| `pre-compact` — snapshot before context is lost | `PreCompact`, 45 s | `PreCompact`, 45 s | `preCompact`, 45 s |
+| `post-compact` — resume marker | `PostCompact`, 10 s | `PostCompact`, 10 s | — |
+| `turn-stop` — sweep once enough new text accrues | — | `Stop`, 90 s | `stop`, 90 s |
+| `session-end` | `SessionEnd`, 60 s, sweep | `SessionEnd`, 3 s, pending marker | `sessionEnd`, 5 s, pending marker |
+
+- Timeouts above are Calamus settings, not platform defaults. Claude Code
+  gives `SessionEnd` 1.5 s by default and raises it to a configured timeout,
+  up to 60 s. Codex gives `SessionEnd` 1 s by default and 3 s at most.
+  Cursor documents no default or maximum. Sources and access dates are in
+  [docs/host-facts.md](docs/host-facts.md).
+- Codex runs no hook until you review and trust it with `/hooks`, and asks
+  again when a hook changes. Project-local hooks also need a trusted
+  `.codex/` layer.
+- Cursor imports hooks from `.claude/settings.json`,
+  `.claude/settings.local.json`, and `~/.claude/settings.json`. Register one
+  or the other, not both (a dedupe window is only a backstop).
+- Codex and Cursor behavior is documentation-verified; only Claude Code is
+  tested live.
+- **Other runtimes:** call `scripts/hook.sh --host generic --event <event>`
+  with `{"session_id", "cwd", "transcript_path"}` as JSON on stdin, or set
+  `CALAMUS_SESSION_ID`, `CALAMUS_CWD`, and `CALAMUS_TRANSCRIPT`.
+
+### Migrating from `journaling/`
+
+Earlier versions installed copies under `~/.claude/skills/journaling/`,
+`~/.claude/hooks/journaling/`, and `~/.codex/hooks/journaling/`. Those keep
+working until you replace them: remove the old hook registrations and the
+adapter block that points at `journaling/`, then run `calamus-install` and
+paste the new adapter. Existing journals need no change — Calamus reads
+them as they are and appends in the same Markdown format.
 
 ---
 
+## Backends and Models
+
+Hooks call a model through a backend. `CALAMUS_BACKEND=auto` (default) uses
+the host's own CLI; set `claude`, `codex`, or `generic` to choose.
+
+| Backend | Command | Model pin (`assets/calamus.env`) |
+|---|---|---|
+| `claude` | `claude --print --safe-mode --tools "" --model …` | `CALAMUS_CLAUDE_MODEL` |
+| `codex` | `codex exec --sandbox read-only …` | `CALAMUS_CODEX_MODEL` |
+| `cursor` | disabled: the CLI has no documented model flag or tool switch | `CALAMUS_CURSOR_MODEL` |
+| `generic` | `sh -c "$CALAMUS_LLM_CMD"`, prompt on stdin | your command |
+
+- **No silent substitution.** An unavailable backend never falls back to
+  another model; the capture becomes a `CALAMUS-PENDING` marker that the
+  skill offers to resolve later.
+- **Transcript excerpts go to the backend's provider.** Choosing a backend
+  from a different provider than your host sends session text there.
+  Extraction removes most tool output first, but not everything.
+- **Lean path:** `generic` can call an API directly and skip a CLI's fixed
+  per-call overhead (measured at ~3.7K input tokens for `claude -p`). It
+  needs an API key, so it is opt-in.
+- `CALAMUS_LLM_CMD` and `CALAMUS_*_BIN` are honored only from the
+  environment or `~/.config/calamus/calamus.env`, never from a project's
+  `.calamus/calamus.env`, so a cloned repository cannot run commands.
+
+Configuration precedence: environment, `<project>/.calamus/calamus.env`,
+`~/.config/calamus/calamus.env`, `assets/profiles/<backend>.env` (measured
+tuning only), `assets/calamus.env`. Files are parsed as data, never sourced.
+
+---
+
+## Journal Formats and Recall
+
+`calamus-init --format md|xml|jsonl` picks the format (`human` = `md`,
+`model` = `xml`); after that the file extension is the source of truth.
+
+| Format | For | Notes |
+|---|---|---|
+| `md` (default) | People | Matches the original Lightweight and Full schemas |
+| `xml` | Models | Stream of `<entry>`/`<marker>` elements, no root element |
+| `jsonl` | Models | One record per line, header first |
+
+Changing formats does not meaningfully shrink an entry: in one measured
+example, XML was 104% of the Markdown size and JSONL was 97–100%. Querying
+is what saves context. Reading a whole journal costs about 2.2K tokens at
+7 entries and about 150K at 500; `calamus-query --last 3` stays near 1.4K.
+
+```bash
+calamus-append --journal engineering < entry.json   # validate, render, append; prints "ok <id>"
+calamus-query --brief --last 10                     # index: id, journal, tag, date, title
+calamus-query --id 20260927-1630-a1b2               # one entry in full
+calamus-query --tag CP-COMPACT-SNAPSHOT --last 1    # where to resume after compaction
+calamus-convert --to xml                            # writes docs/*.xml beside the originals
+```
+
+---
+
+## Writeups (beta)
+
+`calamus-synthesis` is the beta skill. Its commands and output formats may
+change between releases. Ask it to explain a project or a decision ("write
+up this project" or "why did we move to SQLite?") and it uses the journals
+to build an overview, phase history, decision log, insight writeup,
+white-paper scaffold, or focused brief:
+
+```bash
+calamus-synth extract --out docs/writeups/2026-10-15-full   # facts.json: records, signals, candidates
+calamus-synth diagrams docs/writeups/2026-10-15-full         # timeline, phases, pivots, mind map (.mmd)
+calamus-synth excerpt --id <entry> --path src/x.py --symbol f # verbatim code from the commit of that entry
+calamus-synth check docs/writeups/2026-10-15-full            # citations, excerpts, diagrams, style lint
+```
+
+The engine proposes phase boundaries from time gaps, changes in journal tags,
+file turnover, and recorded pivots; the model names the phases. Each claim
+cites a journal entry. Code excerpts come from the commit in effect when the
+entry was logged. `check` extracts them again and rejects edited excerpts,
+paths outside the repository, key and environment files, and lines that look
+like secrets. Diagrams are Mermaid source embedded in Markdown. HTML is
+written only when requested (`render --html`).
+
+Writeups get an advisory style check and at most two revision passes. An
+optional voice profile, kept out of version control in
+`.calamus/voice.md` or `~/.config/calamus/voice.md`, restyles the prose;
+a fidelity check fails if the restyle changes a cited id, date, number, or
+path.
+
+---
+
+## Development
+
+```bash
+bash tests/run.sh                                   # offline: Python unit tests + shell tests, both skills
+python3 skills/calamus/scripts/lib/gendocs.py --write   # regenerate schema blocks in references/
+claude plugin validate packaging/claude-code        # check the Claude Code plugin (offline)
+```
+
+Tests never call a model. Design specs:
+`docs/superpowers/specs/2026-09-26-calamus-design.md` (core) and
+`docs/superpowers/specs/2026-10-15-calamus-synthesis-design.md` (beta).
+The reasoning behind each choice is in `docs/design-rationale.md`, and
+every host behavior the packages rely on is tracked, with sources, in
+`docs/host-facts.md`.
+
+---
 ## Research Foundation
 
 This repo is built around one core premise: reliable agent skills are context
@@ -131,7 +294,8 @@ Chroma / StackOne, 2025
 A Chroma study tested 18 frontier models and found every one degrades as
 context fills, through lost-in-the-middle effects, attention dilution, and
 distractor interference. Model correctness starts dropping after 32K tokens.
-Motivates keeping SKILL.md files under ~200 lines.
+Motivates keeping each `SKILL.md` a short router (111 lines for the core,
+81 for the beta skill).
 
 **[Knowledge Activation: AI Skills as the Institutional Knowledge Primitive](https://arxiv.org/abs/2603.14805)**
 2026
@@ -161,10 +325,14 @@ The announcement and design rationale for Agent Skills. Introduced progressive
 disclosure: name + description (~30–50 tokens) at discovery, full SKILL.md
 on activation, referenced files and scripts only during execution.
 
-**[Agent Skills Open Standard](https://agentskills.io)**
+**[Agent Skills Open Standard](https://agentskills.io)** and
+**[Specification](https://agentskills.io/specification)**
 Released December 18, 2025
-The official specification. Three-stage loading: Discovery → Activation →
-Execution. The format this repo's SKILL.md files follow.
+Three-stage loading: Discovery → Activation → Execution. `name` must match
+the directory (1–64 lowercase characters), `description` ≤ 1024 characters,
+`SKILL.md` under 500 lines, references one level deep. Both skills are
+checked against these rules, in `tests/test_skill.sh` and
+`tests/test_synth_skill.sh`.
 
 **[Progressive Disclosure as a System Design Pattern](https://swirlai.substack.com/)**
 SwirlAI Newsletter, March 2026
@@ -213,7 +381,7 @@ it gets condensed." Core hook used for compaction-boundary journal capture.
 Konishi, June 2026
 "The PreCompact hook fires immediately before a compaction, with a matcher
 that distinguishes manual (/compact) from automatic triggers." Documents
-the exact integration pattern used in `pre-compact.sh`.
+the integration pattern behind the `pre-compact` event.
 
 **[Claude Code Compaction Kept Destroying My Work](https://dev.to/adolan)**
 Adolan, DEV Community, April 2026
@@ -226,13 +394,17 @@ GitHub
 "The hook fires at the death boundary — the moment between full context and
 compaction. A subagent called from the hook has an empty context window,
 meaning it can dedicate full attention to interpreting the session." Informed
-the snapshot prompt design in `pre-compact.sh`.
+the snapshot prompt design (`scripts/prompts/snapshot.txt`).
 
 **[Codex CLI Hooks Reference](https://developers.openai.com/codex/hooks)**
-OpenAI Developers, April 2026
-Codex supports the same hook event schema as Claude Code via `hooks.json`
-or inline `config.toml`. `TaskCompleted` is a supported event alongside
-`Stop`, `SessionStart`, `PreCompact`, and `PostCompact`.
+OpenAI Developers, read 2026-09-26
+`hooks.json` is an object keyed by event name. Events: `SessionStart`,
+`SessionEnd`, `PreToolUse`, `PostToolUse`, `PermissionRequest`, `PreCompact`,
+`PostCompact`, `UserPromptSubmit`, `SubagentStart`, `SubagentStop`, `Stop`,
+and `Interrupt` — there is no `TaskCompleted`. `SessionEnd` defaults to 1 s
+and allows at most 3 s. Project-local hooks load only when the project `.codex/` layer is
+trusted. *Correction:* an earlier version of this README said Codex shares
+Claude Code's hook schema and supports `TaskCompleted`; it does neither.
 
 **[Codex CLI v0.124.0 — Hooks Engine Stable](https://blakecrosley.com/guides/codex)**
 Blake Crosley, June 2026
@@ -241,15 +413,39 @@ New hook events continue to ship in releases.
 
 **[Codex CLI Issue #17532](https://github.com/openai/codex/issues/17532)**
 GitHub openai/codex, April 2026
-Project-local `.codex/config.toml` hook config does not fire in interactive
-sessions as of v0.120. Recommends global `~/.codex/hooks.json` until resolved.
-Informs the adapter's installation note.
+Reported that project-local hook config did not fire in interactive sessions
+as of v0.120. Neither confirmed nor refuted against current Codex; Calamus
+documents the trusted-layer requirement instead.
 
 **[Claude Code vs Codex CLI 2026 Decision Reference](https://blakecrosley.com/blog/claude-code-vs-codex)**
 Blake Crosley
-Documents `TaskCreated` and `TaskCompleted` as confirmed Claude Code lifecycle
-events (v2.1.141+), also available in Codex's hook schema. Confirms the
-technical basis for `TaskCompleted`-based per-task checkpointing.
+Documents `TaskCreated` and `TaskCompleted` as Claude Code lifecycle events.
+*Correction:* its claim that Codex shares them is not supported by Codex's
+hooks documentation, and the per-task Codex mode built on it was removed.
+
+**[Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks)**
+Anthropic, read 2026-09-26
+`SessionEnd` hooks share a 1.5 s budget by default; a longer per-hook
+`timeout` in settings raises it, up to 60 s. Calamus configures
+`timeout: 60` for its sweep.
+
+**[Cursor Hooks](https://cursor.com/docs/agent/hooks)** and
+**[Cursor Third-Party Hooks](https://cursor.com/docs/agent/third-party-hooks)**
+Cursor, read 2026-09-26
+`hooks.json` with `"version": 1`; events include `sessionStart`,
+`sessionEnd`, `preCompact`, and `stop`; payloads use `conversation_id` and
+`workspace_roots`. Cursor imports Claude Code hooks from
+`.claude/settings.json`, which is why Calamus deduplicates by session and
+event rather than by host.
+
+**[Cursor CLI Headless Mode](https://cursor.com/docs/cli/headless)**
+Cursor, read 2026-09-28
+Documents `agent -p --output-format text`, but no model flag and no way to
+disable tools, so the Cursor backend ships disabled. *Correction
+(2026-10-04):* the [CLI parameters reference](https://cursor.com/docs/cli/reference/parameters)
+now documents `--model`; there is still no flag that disables tools, so the
+backend stays disabled. The activation runner uses `--model` when
+`CALAMUS_CURSOR_MODEL` is set and otherwise labels its results unpinned.
 
 ### Eval Methodology
 
@@ -296,7 +492,7 @@ levels in some domains.
 
 ### Product Discovery and Product Strategy
 
-*(Informing the product-insight-journal skill)*
+*(Informing the product insight journal)*
 
 **[Continuous Discovery Habits](https://www.producttalk.org/category/continuous-discovery-habits/)**
 Teresa Torres / Product Talk
@@ -328,21 +524,24 @@ explicit cross-referencing rather than a single mixed-concern log.
 
 ---
 
-## Repo Philosophy
+## Design choices
 
-**Skills are procedures, not documents.** SKILL.md files contain only what
-the agent needs to act. Design rationale and research live in READMEs that
-agents never load.
+**Keep instructions close to the work.** `SKILL.md` and its references tell
+the agent what to do. Rationale and research stay in documentation that the
+agent does not need to load for each task.
 
-**Hooks make reliability deterministic.** Model-driven journaling is
-probabilistic. Hooks fire on every qualifying lifecycle event regardless of
-model attention. The combination produces reliable coverage.
+**Capture at the moment context changes.** An agent may miss a journal entry,
+especially near the context limit. Hooks run at lifecycle boundaries and
+leave the host alone if capture fails: every path exits 0 and prints nothing.
 
-**Evals close the loop.** A skill without evals is a guess. Even a simple
-Level 1 gate tells you whether the system is working session by session.
-Level 2 rubric scoring tells you where it's weakest. The eval stack is part
-of the skill, not an afterthought.
+**Measure entries without rewriting them.** The Level 1 gate flags weak
+captures and the Level 2 scorer shows which parts need work. People decide
+what to change; neither gate rewrites prompts or journal history.
 
-**Progressive disclosure keeps everything lean.** ~30–50 tokens at discovery,
-full skill on activation, referenced files only during execution. This is
-the Agent Skills contract and this repo honors it in every file.
+**Load only what a task needs.** Discovery uses a short description,
+activation loads a router, and writing loads the relevant journal reference.
+Scripts run when the task calls for them.
+
+**Let the core change slowly.** Journaling runs across sessions and has no
+dependency on synthesis. Writeups live in a separate beta skill that can
+evolve without expanding the core procedure.
