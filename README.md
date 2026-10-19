@@ -2,37 +2,57 @@
 
 *The reed pen that preceded the quill — a scribe for agent sessions.*
 
-Calamus is one Agent Skill that keeps two append-only journals as live
-project memory: an **engineering journal** (`docs/dev_journal.md`) for
-architecture decisions, pivots, constraints, debugging lessons, and verified
-milestones, and a **product insight journal** (`docs/product_insights.md`)
-for user pain, UX friction, positioning, roadmap trade-offs, and growth
-signals. Optional lifecycle hooks capture checkpoints automatically at
-compaction, turn, and session boundaries, so the record does not depend on
-the model remembering to write it.
+Calamus gives agent sessions a project memory that outlives the context
+window. Its core skill keeps two append-only journals: an **engineering
+journal** (`docs/dev_journal.md`) for architecture decisions, pivots,
+constraints, debugging lessons, and verified milestones, and a **product
+insight journal** (`docs/product_insights.md`) for user pain, UX friction,
+positioning, roadmap trade-offs, and growth signals. Optional lifecycle
+hooks capture checkpoints at compaction, turn, and session boundaries, so
+the record does not depend on the model remembering to write it.
 
-It installs on **Claude Code**, **Codex CLI**, and **Cursor** from one
-source, and any runtime that can run a shell command can drive it.
+A beta skill reads those journals back out as documents a person can use:
+a project overview, phase and pivot history, decision log, insights, and a
+white-paper scaffold, with Mermaid diagrams and code excerpts taken from
+the commit behind each decision.
+
+| Skill | Tier | Role |
+|---|---|---|
+| `calamus` | core | Writes and recalls the journals; registers the capture hooks |
+| `calamus-synthesis` | beta | Turns the journals into cited writeups; never writes to a journal |
+
+The core is stable and depends on nothing else. The beta skill builds on
+the core's parser, ships beside it in every package, and may change its
+commands and output formats between releases.
+
+Both install on **Claude Code**, **Codex CLI**, and **Cursor** from one
+source, and any runtime that can run a shell command can drive them.
 
 ---
 
 ## What's Here
 
 ```
-skills/calamus/                core: the distributable journaling skill
+skills/calamus/                core: the journaling skill
   SKILL.md                     router: which journal, how to write, how to recall
   references/                  per-journal procedures and schemas (loaded on demand)
   scripts/                     calamus-init | -append | -query | -convert | -install, hook.sh
   scripts/lib/                 schema, renderers, parser, extractor, config, gates
   scripts/backends/            claude | codex | cursor | generic
+  scripts/prompts/             snapshot, sweep, and eval-gate prompts for the hooks
   assets/                      calamus.env (all model pins), profiles/, schema/, hosts/, adapter.md
   evals/                       rubric, Level 2 scorer, Level 4 plan, activation experiment
-skills/calamus-synthesis/      beta: read-only writeups from the journals: phases, pivots, diagrams, excerpts
+skills/calamus-synthesis/      beta: read-only writeups from the journals
+  SKILL.md                     router: pick a mode, run the steps, follow the rules
+  references/                  analyst procedure, output contracts, white paper, style, voice
+  agents/journal-analyst.md    brief for an optional analysis subagent
   scripts/calamus-synth        extract | diagrams | excerpt | embed | snapshot | check | render
-packaging/                     per-host plugin wrappers: manifests + hooks, skill linked from skills/
+  scripts/lib/                 signals, candidates, excerpts, Mermaid, lint, fidelity
+  assets/                      synth.conf, style.conf, JSON schemas, voice template
+packaging/                     per-host plugin wrappers: manifests + hooks, both skills linked from skills/
 .claude-plugin/                marketplace for the Claude Code plugin
-docs/                          design rationale, spec, and this repo's own journals
-tests/run.sh                   offline test suite
+docs/                          design rationale, specs, host facts, and this repo's own journals
+tests/run.sh                   offline test suite for both skills
 ```
 
 ---
@@ -40,7 +60,8 @@ tests/run.sh                   offline test suite
 ## Install
 
 Claude Code — install the plugin from a clone of this repository. It
-bundles the skill and registers the hooks, so there is no JSON to merge:
+bundles both skills and registers the core's hooks, so there is no JSON to
+merge:
 
 ```bash
 claude plugin marketplace add /path/to/this/repo
@@ -63,9 +84,10 @@ yourself:
 skills/calamus/scripts/calamus-install --host claude-code   # or codex, cursor
 ```
 
-The installer symlinks the skill into the host's skills directory
-(`~/.claude/skills/calamus` for Claude Code, `~/.agents/skills/calamus` for
-Codex and Cursor; `--copy` copies instead). It then prints the hooks config
+The installer symlinks both skills into the host's skills directory
+(`~/.claude/skills/` for Claude Code, `~/.agents/skills/` for Codex and
+Cursor; `--copy` copies instead), with `calamus-synthesis` beside `calamus`
+so it can find the core's parser. It then prints the hooks config
 to merge and the adapter text to paste into `CLAUDE.md` or `AGENTS.md`. It
 never edits a settings file and refuses to overwrite an existing install.
 It warns first if Calamus hooks are already registered, including through
@@ -178,12 +200,12 @@ calamus-convert --to xml                            # writes docs/*.xml beside t
 
 ## Writeups (beta)
 
-`calamus-synthesis` is a beta add-on: its commands and output formats may
-change, and the core skill never depends on it. It turns the journals into documents a person can read
-cold: an overview, phase and pivot history, decision log, insights, a
-white-paper scaffold, or a brief on one decision. Ask for one ("write up
-this project", "why did we move to SQLite?") and the skill runs these
-steps:
+`calamus-synthesis` is the beta skill. Its commands and output formats may
+change between releases, and the core never depends on it. It turns the
+journals into documents a person can read cold: an overview, phase and
+pivot history, decision log, insights, a white-paper scaffold, or a brief
+on one decision. Ask for one ("write up this project", "why did we move to
+SQLite?") and the skill runs these steps:
 
 ```bash
 calamus-synth extract --out docs/writeups/2026-10-15-full   # facts.json: records, signals, candidates
@@ -194,22 +216,35 @@ calamus-synth check docs/writeups/2026-10-15-full            # citations, excerp
 
 The engine finds candidate phase boundaries from time gaps, tag-mix
 shifts, file turnover, and explicit pivots; the model names them. Every
-claim cites an entry id. Code excerpts are re-extracted on every `check`,
-so an edited excerpt fails. Diagrams are Mermaid source embedded in the
-Markdown; HTML is written only on request. The skill never writes to a
-journal.
+claim cites an entry id. Code excerpts come from the commit in effect when
+each entry was logged and are re-extracted on every `check`, so an edited
+excerpt fails; paths outside the repository, key and environment files,
+and lines that look like secrets are refused. Diagrams are Mermaid source
+embedded in the Markdown; HTML is written only on request (`render
+--html`).
+
+Prose gets craft rules, an advisory style lint, and at most two revision
+passes. An optional voice profile, kept out of version control in
+`.calamus/voice.md` or `~/.config/calamus/voice.md`, restyles the prose;
+a fidelity check fails if the restyle changes a cited id, date, number, or
+path.
 
 ---
 
 ## Development
 
 ```bash
-bash tests/run.sh                                   # offline: Python unit tests + shell tests
+bash tests/run.sh                                   # offline: Python unit tests + shell tests, both skills
 python3 skills/calamus/scripts/lib/gendocs.py --write   # regenerate schema blocks in references/
+claude plugin validate packaging/claude-code        # check the Claude Code plugin (offline)
 ```
 
-The design spec is `docs/superpowers/specs/2026-09-26-calamus-design.md`;
-the reasoning behind each choice is in `docs/design-rationale.md`.
+Tests never call a model. Design specs:
+`docs/superpowers/specs/2026-09-26-calamus-design.md` (core) and
+`docs/superpowers/specs/2026-10-15-calamus-synthesis-design.md` (beta).
+The reasoning behind each choice is in `docs/design-rationale.md`, and
+every host behavior the packages rely on is tracked, with sources, in
+`docs/host-facts.md`.
 
 ---
 ## Research Foundation
@@ -263,7 +298,8 @@ Chroma / StackOne, 2025
 A Chroma study tested 18 frontier models and found every one degrades as
 context fills, through lost-in-the-middle effects, attention dilution, and
 distractor interference. Model correctness starts dropping after 32K tokens.
-Motivates keeping `SKILL.md` a short router (~110 lines here).
+Motivates keeping each `SKILL.md` a short router (111 lines for the core,
+81 for the beta skill).
 
 **[Knowledge Activation: AI Skills as the Institutional Knowledge Primitive](https://arxiv.org/abs/2603.14805)**
 2026
@@ -298,8 +334,9 @@ on activation, referenced files and scripts only during execution.
 Released December 18, 2025
 Three-stage loading: Discovery → Activation → Execution. `name` must match
 the directory (1–64 lowercase characters), `description` ≤ 1024 characters,
-`SKILL.md` under 500 lines, references one level deep. Calamus is checked
-against these rules in `tests/test_skill.sh`.
+`SKILL.md` under 500 lines, references one level deep. Both skills are
+checked against these rules, in `tests/test_skill.sh` and
+`tests/test_synth_skill.sh`.
 
 **[Progressive Disclosure as a System Design Pattern](https://swirlai.substack.com/)**
 SwirlAI Newsletter, March 2026
@@ -509,3 +546,8 @@ rewrites prompts on its own.
 **Progressive disclosure keeps everything lean.** A short description at
 discovery, a router on activation, one reference per journal written, and
 scripts only during execution.
+
+**The core stays small; new capability ships as beta beside it.** The
+journaling core loads in every session, so it changes slowly and depends on
+nothing. Features that are occasional or still settling, such as writeups,
+ship as a separate beta skill that reuses the core instead of growing it.
