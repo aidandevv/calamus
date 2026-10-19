@@ -145,3 +145,20 @@
 > — see [CP-MILESTONE] | 2026-09-28: Calamus Skill and Hook Engine Implemented With Offline Tests.
 
 ---
+
+### [PI-POSITIONING] | 2026-10-18: Lead the README with the lost-decision problem
+
+**Observation:**
+- The README described journals and hooks before giving readers a concrete reason to need them. The portfolio's editorial standard favors a specific problem, connected choices, and claims bounded by evidence. The revised opening starts with the decision context an agent can lose between sessions, then explains how the journals, query, and hooks address it.
+
+**Why It Matters:**
+- A reader evaluating Calamus can understand its purpose before meeting its file layout and host details. Clearer boundaries also help keep the beta synthesis skill from sounding like part of the core capture path.
+
+**Evidence:**
+- **Source:** Owner request to apply the portfolio's product voice; review of the README and portfolio editorial standard.
+- **Strength:** Medium for intended voice and message structure; reader comprehension has not been tested.
+
+**Hypothesis / Next Step:**
+- Check whether a new reader can explain the problem, the two journals, and the optional role of hooks from the first screen of the README.
+
+---

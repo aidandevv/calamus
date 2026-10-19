@@ -1,29 +1,30 @@
 # Calamus
 
-*The reed pen that preceded the quill — a scribe for agent sessions.*
+An agent can finish a session with working code and still lose why a decision
+was made. Calamus keeps that reasoning in the project, where the next session
+and the people working on it can find it.
 
-Calamus gives agent sessions a project memory that outlives the context
-window. Its core skill keeps two append-only journals: an **engineering
-journal** (`docs/dev_journal.md`) for architecture decisions, pivots,
-constraints, debugging lessons, and verified milestones, and a **product
-insight journal** (`docs/product_insights.md`) for user pain, UX friction,
-positioning, roadmap trade-offs, and growth signals. Optional lifecycle
-hooks capture checkpoints at compaction, turn, and session boundaries, so
-the record does not depend on the model remembering to write it.
+The core skill maintains two append-only journals. The **engineering journal**
+(`docs/dev_journal.md`) records decisions, pivots, constraints, debugging
+lessons, and verified milestones. The **product insight journal**
+(`docs/product_insights.md`) records user problems, UX friction, positioning,
+and roadmap choices. Agents can query relevant entries instead of loading the
+whole history. Optional hooks capture checkpoints at compaction, turn, and
+session boundaries, when useful context is most likely to be lost.
 
-A beta skill reads those journals back out as documents a person can use:
-a project overview, phase and pivot history, decision log, insights, and a
-white-paper scaffold, with Mermaid diagrams and code excerpts taken from
-the commit behind each decision.
+The beta synthesis skill turns those records into a project overview, decision
+log, phase history, or insight writeup. It can add Mermaid diagrams and code
+excerpts from the commit associated with a journal entry, while leaving the
+journals untouched.
 
 | Skill | Tier | Role |
 |---|---|---|
-| `calamus` | core | Writes and recalls the journals; registers the capture hooks |
-| `calamus-synthesis` | beta | Turns the journals into cited writeups; never writes to a journal |
+| `calamus` | core | Records and recalls decisions and insights; registers optional capture hooks |
+| `calamus-synthesis` | beta | Builds cited writeups from the journals |
 
-The core is stable and depends on nothing else. The beta skill builds on
-the core's parser, ships beside it in every package, and may change its
-commands and output formats between releases.
+The core has no dependency on the beta skill. Synthesis uses the core's
+parser, ships beside it in every package, and may change its commands and
+output formats between releases.
 
 Both install on **Claude Code**, **Codex CLI**, and **Cursor** from one
 source, and any runtime that can run a shell command can drive them.
@@ -59,39 +60,36 @@ tests/run.sh                   offline test suite for both skills
 
 ## Install
 
-Claude Code — install the plugin from a clone of this repository. It
-bundles both skills and registers the core's hooks, so there is no JSON to
-merge:
+For Claude Code, install the plugin from a clone of this repository. The
+plugin includes both skills and registers the core's hooks:
 
 ```bash
 claude plugin marketplace add /path/to/this/repo
 claude plugin install calamus@calamus
 ```
 
-Codex and Cursor have plugin packages too, in `packaging/codex` and
-`packaging/cursor`. Their layouts follow each host's plugin docs but are not
-yet tested live (see [docs/host-facts.md](docs/host-facts.md)):
+Codex and Cursor packages are in `packaging/codex` and `packaging/cursor`.
+Their layouts follow each host's plugin docs; neither has been tested live
+(see [docs/host-facts.md](docs/host-facts.md)):
 
 - **Codex:** add `packaging/codex` to a Codex plugin marketplace. Its hooks
   still run only after you review and trust them in `/hooks`.
 - **Cursor:** `ln -s "$PWD/packaging/cursor" ~/.cursor/plugins/local/calamus`,
   then restart Cursor. Plugin hooks run only in a trusted workspace.
 
-**Advanced fallback — raw install.** For any host, or to manage hooks
-yourself:
+To install the skills without a plugin and manage hook registration yourself:
 
 ```bash
 skills/calamus/scripts/calamus-install --host claude-code   # or codex, cursor
 ```
 
-The installer symlinks both skills into the host's skills directory
+The installer links both skills into the host's skills directory
 (`~/.claude/skills/` for Claude Code, `~/.agents/skills/` for Codex and
 Cursor; `--copy` copies instead), with `calamus-synthesis` beside `calamus`
-so it can find the core's parser. It then prints the hooks config
-to merge and the adapter text to paste into `CLAUDE.md` or `AGENTS.md`. It
-never edits a settings file and refuses to overwrite an existing install.
-It warns first if Calamus hooks are already registered, including through
-the plugin: use the plugin or the raw install, not both.
+so it can find the core's parser. It prints the hook configuration to merge
+and the adapter text to paste into `CLAUDE.md` or `AGENTS.md`. It does not
+edit settings or overwrite an existing install. If plugin hooks are already
+registered, the installer warns before you add another registration.
 
 In each project, with `CALAMUS` set to the skill directory (the clone's
 `skills/calamus`, or the raw install's `~/.claude/skills/calamus`):
@@ -101,8 +99,8 @@ In each project, with `CALAMUS` set to the skill directory (the clone's
 echo ".calamus/" >> .gitignore                           # hook state and logs
 ```
 
-Hooks are optional. Without them the skill still works; the agent writes
-entries when its adapter tells it to.
+Hooks are optional. Without them, the agent writes entries when the adapter
+calls for a checkpoint.
 
 ### Host matrix
 
@@ -183,10 +181,10 @@ tuning only), `assets/calamus.env`. Files are parsed as data, never sourced.
 | `xml` | Models | Stream of `<entry>`/`<marker>` elements, no root element |
 | `jsonl` | Models | One record per line, header first |
 
-A model-optimized format does not make entries smaller — measured on a real
-entry, XML is 104% of the Markdown size and JSONL 97–100%. The savings come
-from **recall by query**: reading a whole journal costs ~2.2K tokens at 7
-entries and ~150K at 500, while `calamus-query --last 3` stays near 1.4K.
+Changing formats does not meaningfully shrink an entry: in one measured
+example, XML was 104% of the Markdown size and JSONL was 97–100%. Querying
+is what saves context. Reading a whole journal costs about 2.2K tokens at
+7 entries and about 150K at 500; `calamus-query --last 3` stays near 1.4K.
 
 ```bash
 calamus-append --journal engineering < entry.json   # validate, render, append; prints "ok <id>"
@@ -201,11 +199,10 @@ calamus-convert --to xml                            # writes docs/*.xml beside t
 ## Writeups (beta)
 
 `calamus-synthesis` is the beta skill. Its commands and output formats may
-change between releases, and the core never depends on it. It turns the
-journals into documents a person can read cold: an overview, phase and
-pivot history, decision log, insights, a white-paper scaffold, or a brief
-on one decision. Ask for one ("write up this project", "why did we move to
-SQLite?") and the skill runs these steps:
+change between releases. Ask it to explain a project or a decision ("write
+up this project" or "why did we move to SQLite?") and it uses the journals
+to build an overview, phase history, decision log, insight writeup,
+white-paper scaffold, or focused brief:
 
 ```bash
 calamus-synth extract --out docs/writeups/2026-10-15-full   # facts.json: records, signals, candidates
@@ -214,17 +211,16 @@ calamus-synth excerpt --id <entry> --path src/x.py --symbol f # verbatim code fr
 calamus-synth check docs/writeups/2026-10-15-full            # citations, excerpts, diagrams, style lint
 ```
 
-The engine finds candidate phase boundaries from time gaps, tag-mix
-shifts, file turnover, and explicit pivots; the model names them. Every
-claim cites an entry id. Code excerpts come from the commit in effect when
-each entry was logged and are re-extracted on every `check`, so an edited
-excerpt fails; paths outside the repository, key and environment files,
-and lines that look like secrets are refused. Diagrams are Mermaid source
-embedded in the Markdown; HTML is written only on request (`render
---html`).
+The engine proposes phase boundaries from time gaps, changes in journal tags,
+file turnover, and recorded pivots; the model names the phases. Each claim
+cites a journal entry. Code excerpts come from the commit in effect when the
+entry was logged. `check` extracts them again and rejects edited excerpts,
+paths outside the repository, key and environment files, and lines that look
+like secrets. Diagrams are Mermaid source embedded in Markdown. HTML is
+written only when requested (`render --html`).
 
-Prose gets craft rules, an advisory style lint, and at most two revision
-passes. An optional voice profile, kept out of version control in
+Writeups get an advisory style check and at most two revision passes. An
+optional voice profile, kept out of version control in
 `.calamus/voice.md` or `~/.config/calamus/voice.md`, restyles the prose;
 a fidelity check fails if the restyle changes a cited id, date, number, or
 path.
@@ -528,26 +524,24 @@ explicit cross-referencing rather than a single mixed-concern log.
 
 ---
 
-## Philosophy
+## Design choices
 
-**Skills are procedures, not documents.** `SKILL.md` and its references
-contain only what the agent needs to act. Rationale and research live in
-files agents never load.
+**Keep instructions close to the work.** `SKILL.md` and its references tell
+the agent what to do. Rationale and research stay in documentation that the
+agent does not need to load for each task.
 
-**Hooks make reliability deterministic.** Model-driven journaling is
-probabilistic and degrades near context limits. Hooks fire on every
-qualifying lifecycle event regardless of model attention, and never block
-the host: every path exits 0 and prints nothing.
+**Capture at the moment context changes.** An agent may miss a journal entry,
+especially near the context limit. Hooks run at lifecycle boundaries and
+leave the host alone if capture fails: every path exits 0 and prints nothing.
 
-**Evals measure; people close the loop.** The Level 1 gate flags weak
-captures and the Level 2 scorer shows where entries are weakest. Neither
-rewrites prompts on its own.
+**Measure entries without rewriting them.** The Level 1 gate flags weak
+captures and the Level 2 scorer shows which parts need work. People decide
+what to change; neither gate rewrites prompts or journal history.
 
-**Progressive disclosure keeps everything lean.** A short description at
-discovery, a router on activation, one reference per journal written, and
-scripts only during execution.
+**Load only what a task needs.** Discovery uses a short description,
+activation loads a router, and writing loads the relevant journal reference.
+Scripts run when the task calls for them.
 
-**The core stays small; new capability ships as beta beside it.** The
-journaling core loads in every session, so it changes slowly and depends on
-nothing. Features that are occasional or still settling, such as writeups,
-ship as a separate beta skill that reuses the core instead of growing it.
+**Let the core change slowly.** Journaling runs across sessions and has no
+dependency on synthesis. Writeups live in a separate beta skill that can
+evolve without expanding the core procedure.
