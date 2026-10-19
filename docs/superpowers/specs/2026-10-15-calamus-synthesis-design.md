@@ -1,6 +1,6 @@
 # Calamus Synthesis — Design Spec
 
-> Status: draft for review, amended 2026-10-15 (code excerpts, prose
+> Status: beta (shipped beside the core calamus skill), amended 2026-10-15 (code excerpts, prose
 > quality, diagram robustness). Branch: `refactor/calamus`.
 > Scope: a second skill, `calamus-synthesis` (name provisional), that reads
 > the two Calamus journals and produces human-readable writeups, diagrams,

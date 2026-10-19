@@ -12,6 +12,7 @@ description: >-
 compatibility: Any Agent Skills-compatible agent. Optional lifecycle hooks need bash and python3.
 metadata:
   version: "3.0.0"
+  tier: core
 ---
 
 # Calamus

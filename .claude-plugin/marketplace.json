@@ -3,6 +3,6 @@
   "owner": { "name": "Calamus contributors" },
   "description": "Calamus project-memory journals for Claude Code.",
   "plugins": [
-    { "name": "calamus", "source": "./packaging/claude-code", "description": "Calamus skill with its lifecycle hooks registered." }
+    { "name": "calamus", "source": "./packaging/claude-code", "description": "Calamus core skill with its lifecycle hooks registered, plus calamus-synthesis (beta) for writeups." }
   ]
 }

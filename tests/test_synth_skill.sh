@@ -28,6 +28,7 @@ assert_eq "calamus-synthesis" "$(basename "$SYNTH_DIR")" "directory matches name
 desc="$(fm description)"
 assert_eq 1 "$([ "${#desc}" -ge 1 ] && [ "${#desc}" -le 1024 ] && echo 1)" "description length ${#desc}"
 assert_eq 1 "$([ "$(wc -l < "$SK")" -le 150 ] && echo 1)" "SKILL.md <= 150 lines"
+assert_eq "beta" "$(sed -n '/^---$/,/^---$/p' "$SK" | sed -n 's/^  tier: //p')" "frontmatter marks the skill beta"
 
 for p in $(grep -oE '(references|scripts|agents|assets)/[A-Za-z0-9_./-]+' "$SK" | sed 's/[.,)]*$//' | sort -u); do
   assert_file "$SYNTH_DIR/$p" "SKILL.md reference $p"

@@ -4,12 +4,16 @@ This file provides guidance to Codex CLI and other agents when working with code
 
 ## What this repo is
 
-Calamus is one Agent Skill, `skills/calamus/`, that maintains two
+Calamus is a core Agent Skill, `skills/calamus/`, that maintains two
 append-only journals as live project memory: an engineering decision journal
 (`docs/dev_journal.md`) and a product insight journal
 (`docs/product_insights.md`), in `md`, `xml`, or `jsonl`. It installs on
 Claude Code, Codex CLI, and Cursor from one source. The repository root
 holds development files; `skills/calamus/` is what gets installed.
+A beta sibling skill, `skills/calamus-synthesis/`, turns the journals into
+cited writeups, Mermaid diagrams, and code excerpts. It is read-only on the
+journals, ships beside the core in every package, and the core never
+depends on it; its interfaces may change between releases.
 
 The design spec is `docs/superpowers/specs/2026-09-26-calamus-design.md`
 and the implementation plan is `docs/superpowers/plans/2026-09-27-calamus.md`.

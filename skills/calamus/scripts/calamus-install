@@ -66,11 +66,11 @@ mkdir -p "$(dirname "$dest")"
 if [ "$copy" -eq 1 ]; then
   cp -R "$src" "$dest"
   echo "Copied skill to $dest"
-  if [ -d "$synth_src" ]; then cp -R "$synth_src" "$synth_dest"; echo "Copied skill to $synth_dest"; fi
+  if [ -d "$synth_src" ]; then cp -R "$synth_src" "$synth_dest"; echo "Copied beta skill to $synth_dest"; fi
 else
   ln -s "$src" "$dest"
   echo "Linked $dest -> $src"
-  if [ -d "$synth_src" ]; then ln -s "$synth_src" "$synth_dest"; echo "Linked $synth_dest -> $synth_src"; fi
+  if [ -d "$synth_src" ]; then ln -s "$synth_src" "$synth_dest"; echo "Linked beta skill $synth_dest -> $synth_src"; fi
 fi
 [ -d "$synth_src" ] || echo "Note: calamus-synthesis not found beside calamus; installed calamus only."
 

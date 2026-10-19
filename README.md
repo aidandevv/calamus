@@ -19,7 +19,7 @@ source, and any runtime that can run a shell command can drive it.
 ## What's Here
 
 ```
-skills/calamus/                the distributable skill
+skills/calamus/                core: the distributable journaling skill
   SKILL.md                     router: which journal, how to write, how to recall
   references/                  per-journal procedures and schemas (loaded on demand)
   scripts/                     calamus-init | -append | -query | -convert | -install, hook.sh
@@ -27,7 +27,7 @@ skills/calamus/                the distributable skill
   scripts/backends/            claude | codex | cursor | generic
   assets/                      calamus.env (all model pins), profiles/, schema/, hosts/, adapter.md
   evals/                       rubric, Level 2 scorer, Level 4 plan, activation experiment
-skills/calamus-synthesis/      read-only writeups from the journals: phases, pivots, diagrams, excerpts
+skills/calamus-synthesis/      beta: read-only writeups from the journals: phases, pivots, diagrams, excerpts
   scripts/calamus-synth        extract | diagrams | excerpt | embed | snapshot | check | render
 packaging/                     per-host plugin wrappers: manifests + hooks, skill linked from skills/
 .claude-plugin/                marketplace for the Claude Code plugin
@@ -176,9 +176,10 @@ calamus-convert --to xml                            # writes docs/*.xml beside t
 
 ---
 
-## Writeups
+## Writeups (beta)
 
-`calamus-synthesis` turns the journals into documents a person can read
+`calamus-synthesis` is a beta add-on: its commands and output formats may
+change, and the core skill never depends on it. It turns the journals into documents a person can read
 cold: an overview, phase and pivot history, decision log, insights, a
 white-paper scaffold, or a brief on one decision. Ask for one ("write up
 this project", "why did we move to SQLite?") and the skill runs these

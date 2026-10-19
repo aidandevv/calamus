@@ -1,4 +1,4 @@
 {
   "name": "calamus",
-  "description": "Append-only engineering and product journals as live project memory, with compaction and turn-end capture hooks."
+  "description": "Append-only engineering and product journals as live project memory, with compaction and turn-end capture hooks. Includes calamus-synthesis (beta) for writeups."
 }

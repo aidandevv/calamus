@@ -1,16 +1,21 @@
 ---
 name: calamus-synthesis
 description: >-
-  Turns the Calamus engineering and product journals into writeups a person
+  Beta add-on to the calamus skill. Turns the Calamus engineering and product journals into writeups a person
   can read cold: a project overview, phase and pivot history, decision log,
   insights report, white-paper scaffold, or a focused brief on one decision.
   Adds Mermaid diagrams and verbatim code excerpts with provenance, and
   checks every claim against its source entry. Use when asked to summarize
   or retrospect on a project, explain why a decision or pivot happened,
   write up the work, or draw its history. Read-only on the journals.
+metadata:
+  tier: beta
 ---
 
-# Calamus Synthesis
+# Calamus Synthesis (beta)
+
+Beta: commands, output files, and marker formats may change between
+releases. The core calamus skill does not depend on this one.
 
 Reads `docs/dev_journal.*` and `docs/product_insights.*` and writes cited
 documents under `docs/writeups/<YYYY-MM-DD>-<mode>/`. It never edits a
