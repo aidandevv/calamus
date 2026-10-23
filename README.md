@@ -1,8 +1,6 @@
 # Calamus
 
-An agent can finish a session with working code and still lose why a decision
-was made. Calamus keeps that reasoning in the project, where the next session
-and the people working on it can find it.
+When you're building a product and iterating constantly, it becomes incredibly easy to forget certain pivots and decisions you made. I found that when I'm doing writeups or documentation at the end of a development cycle or project, I wished I had tracked my tradeoffs and decisions. Doing so during development can break your flow, and that's where Calamus comes in. It keeps those decisions and reasoning passively in the project, where both the agents and the people working on it can find it.
 
 The core skill maintains two append-only journals. The **engineering journal**
 (`docs/dev_journal.md`) records decisions, pivots, constraints, debugging
